@@ -16,14 +16,18 @@
 //
 //////////////////////////////////////////////////////////////////////////////#
 
+//
+// Arduino "Demoboard" SRDP Driver.
+//
+
 #include "SmoothAnalogInput.h"
 #include "Button.h"
 #include "RgbLed.h"
 
-#include "srdp.h"
+#include "srdp.h" // SRDP library
 
 
-// Demoboard hardware
+// Arduino Pins on the Demoboard
 //
 #define PIN_LED1    3
 #define PIN_LED2    9
@@ -35,6 +39,16 @@
 #define PIN_POT2    1
 #define PIN_BTN1    22
 #define PIN_BTN2    23
+
+
+// Indices of SRDP Registers the Demoboard will expose
+//
+#define IDX_DEV         1
+#define IDX_REG_LED1    3
+#define IDX_REG_LED2    4
+#define IDX_REG_LED3    5
+#define IDX_REG_BTN1    6
+#define IDX_REG_BTN2    7
 
 
 // Wrappers for hardware components
@@ -49,15 +63,7 @@ RgbLed led3;
 srdp_channel_t channel;
   
 
-// transport writer function used by the SRDP channel
-//
-ssize_t transport_write (const uint8_t* data, size_t len) {
-   Serial.write(data, len);
-   return len;
-}
-
-
-// transport reader function used by the SRDP channel
+// Transport reader function used by the SRDP channel
 //
 ssize_t transport_read (uint8_t* data, size_t len) {
    if (Serial.available() > 0) {
@@ -68,22 +74,26 @@ ssize_t transport_read (uint8_t* data, size_t len) {
 }
 
 
-// register read handler called when host requests to read a register
+// Transport writer function used by the SRDP channel
+//
+ssize_t transport_write (const uint8_t* data, size_t len) {
+   Serial.write(data, len);
+   return len;
+}
+
+
+// Register read handler called when host requests to read a register
 //
 int register_read(int dev, int reg, int pos, int len, uint8_t* data) {
-   //
-   // Device 1
-   //
-   if (dev == 1) {
+   if (dev == IDX_DEV) {
       switch (reg) {
+
+         // Buttons
          //
-         // Register 6: Button 1 (left)
-         // Register 7: Button 2 (right)
-         //
-         case 6:
-         case 7:
+         case IDX_REG_BTN1:
+         case IDX_REG_BTN2:
             if (pos == 0 && len == 1) {
-               if (reg == 6) {
+               if (reg == IDX_REG_BTN1) {
                   data[0] = btn1.getState();
                } else {
                   data[0] = btn2.getState();
@@ -101,7 +111,7 @@ int register_read(int dev, int reg, int pos, int len, uint8_t* data) {
 }
 
 
-// register write handler called when host requests to write a register
+// Register write handler called when host requests to write a register
 //
 int register_write(int dev, int reg, int pos, int len, const uint8_t* data) {
    //
@@ -110,13 +120,13 @@ int register_write(int dev, int reg, int pos, int len, const uint8_t* data) {
    if (dev == 1) {
       switch (reg) {
          //
-         // Register 3: LED 1 (red)
-         // Register 4: LED 2 (green)
+         // LED 1 (red)
+         // LED 2 (green)
          //
-         case 3:
-         case 4:
+         case IDX_REG_LED1:
+         case IDX_REG_LED2:
             if (pos == 0 && len == 1) {
-               int pin = reg == 3 ? PIN_LED1 : PIN_LED2;
+               int pin = reg == IDX_REG_LED1 ? PIN_LED1 : PIN_LED2;
                if (data[0]) {
                   digitalWrite(pin, HIGH);
                } else {
@@ -127,9 +137,9 @@ int register_write(int dev, int reg, int pos, int len, const uint8_t* data) {
                return SRDP_ERR_INVALID_REG_POSLEN;
             }
          //
-         // Register 5: LED 3 (RGB)
+         // LED 3 (RGB)
          //
-         case 5:
+         case IDX_REG_LED3:
             if (pos == 0 && len == 3) {
                led3.write(data[0], data[1], data[2]);
                return len;
@@ -145,7 +155,7 @@ int register_write(int dev, int reg, int pos, int len, const uint8_t* data) {
 }
 
 
-// setup function executed once after reset
+// Arduino setup function executed once after reset
 //
 void setup() {
 
@@ -184,49 +194,8 @@ void setup() {
 }
 
 
-
-
-const char* onReadRegister(srdp_channel_t* channel) {
-   // device 1
-   //
-   if ((channel->in.header.fields.opdev & 0xfff) == 1) {
-      switch (channel->in.header.fields.reg) {
-         //
-         // Register 6: Button 1 (left)
-         //
-         case 6:
-            if (channel->in.header.fields.pos == 0 && channel->in.header.fields.len == 0) {
-
-               channel->out.data[0] = btn1.getState();
-               srdp_send_frame(channel, OPCODE_READ_ACK, 1, 6, 0, 1);
-            } else {
-               return "invalid data position and/or length";
-            }
-            return 0;
-
-         //
-         // Register 7: Button 2 (right)
-         //
-         case 7:
-            if (channel->in.header.fields.pos == 0 && channel->in.header.fields.len == 0) {
-
-               channel->out.data[0] = btn2.getState();
-               srdp_send_frame(channel, OPCODE_READ_ACK, 1, 7, 0, 1);
-            } else {
-               return "invalid data position and/or length";
-            }
-            return 0;
-
-         default:
-            return "no such register";
-      }
-   } else {
-      return "no such device";
-   }
-}
-
-
-
+// Arduino main run loop
+//
 void loop() {
 
 /*
@@ -234,7 +203,7 @@ void loop() {
       srdp_loop(&channel);
    }
 */
-
+/*
    if (Serial.available() >= SRDP_FRAME_HEADER_LEN) {
     
       Serial.readBytes((char*) channel.in.header.buffer, SRDP_FRAME_HEADER_LEN);
@@ -268,18 +237,22 @@ void loop() {
          Serial.println(err);
       }
    }
+*/
 
-
+   // process buttons
+   //
    if (btn1.process()) {
+      // when button changed, report change to SRDP
       uint8_t data = btn1.getState();
-      srdp_register_change(&channel, 1, 6, 0, 1, &data);
+      srdp_register_change(&channel, IDX_DEV, IDX_REG_BTN1, 0, 1, &data);
    }
 
    if (btn2.process()) {
       uint8_t data = btn2.getState();
-      srdp_register_change(&channel, 1, 7, 0, 1, &data);
+      srdp_register_change(&channel, IDX_DEV, IDX_REG_BTN2, 0, 1, &data);
    }
 
-   // limit update frequency to 50Hz
+   // limit update frequency
+   //
    delay(20);
 }

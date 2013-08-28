@@ -60,21 +60,33 @@
 #define SRDP_ERR_INVALID_REG_POSLEN -3
 
 
-#include <unistd.h> 
-#include <sys/types.h>
+#include <stddef.h>
+#include <stdint.h>
 
 typedef long ssize_t;
 
 
-typedef ssize_t (*srdp_transport_write) (const uint8_t* data, size_t len);
-
+// Signature of transport reader function used by the SRDP channel.
+//
 typedef ssize_t (*srdp_transport_read) (uint8_t* data, size_t len);
 
-typedef int (*srdp_register_write) (int dev, int reg, int pos, int len, const uint8_t* data);
+// Signature of transport writer function used by the SRDP channel
+//
+typedef ssize_t (*srdp_transport_write) (const uint8_t* data, size_t len);
 
+
+// Callback for register read handler fired when host requests to read a register
+//
 typedef int (*srdp_register_read) (int dev, int reg, int pos, int len, uint8_t* data);
 
+// Callback for register write handler fired when host requests to write a register
+//
+typedef int (*srdp_register_write) (int dev, int reg, int pos, int len, const uint8_t* data);
 
+
+
+// SRDP frame header
+//
 typedef union {
    uint8_t buffer[SRDP_FRAME_HEADER_LEN];
    struct {
@@ -88,12 +100,16 @@ typedef union {
 } srdp_frame_header_t;
 
 
+// SRDP frame
+//
 typedef struct {
    srdp_frame_header_t header;
    uint8_t data[SRDP_FRAME_DATA_MAX_LEN];
 } srdp_frame_t;
 
 
+// SRDP channel
+//
 typedef struct {
    srdp_frame_t in;
    srdp_frame_t out;
@@ -113,55 +129,23 @@ typedef struct {
 } srdp_channel_t;
 
 
-void srdp_init_channel(srdp_channel_t* channel) {
-   channel->_seq_in = 0;
-   channel->_seq_out = 0;
-   channel->needed = SRDP_FRAME_HEADER_LEN;
-}
+// Initialize SRDP channel
+//
+void srdp_init_channel(srdp_channel_t* channel);
 
 
-void srdp_send_frame(srdp_channel_t* channel, int op, int dev, int reg, size_t pos, size_t len) {
-
-   if (op == OPCODE_REGISTER_CHANGE) {
-      // for adapter initiated frames, we have an outgoing
-      // frame sequence number
-      channel->_seq_out += 1;
-      channel->out.header.fields.seq = channel->_seq_out;
-   } else {
-      // for host initiated frames, we echo back the frame
-      // sequence number of the frame received from the host
-      channel->out.header.fields.seq = channel->_seq_in;
-   }
-
-   // set other frame header fields
-   channel->out.header.fields.opdev = ((op & 0xf) << 12) | (dev & 0xfff);
-   channel->out.header.fields.reg = reg;
-   channel->out.header.fields.pos = pos;
-   channel->out.header.fields.len = len;
-
-   // FIXME: compute CRC
-   channel->out.header.fields.crc16 = 0;
-
-   // now transmit frame header and data
-   channel->transport_write(channel->out.header.buffer, SRDP_FRAME_HEADER_LEN);
-   if (len > 0) {
-      channel->transport_write(channel->out.data, len);
-   }
-}
+// Send a SRDP frame
+//
+//void srdp_send_frame(srdp_channel_t* channel, int op, int dev, int reg, size_t pos, size_t len);
 
 
-int srdp_register_change(srdp_channel_t* channel, int dev, int reg, int pos, int len, const uint8_t* data) {
-   if (true) {
-      for (int i = 0; i < len; ++i) {
-         channel->out.data[i] = data[i];
-      }
-      srdp_send_frame(channel, OPCODE_REGISTER_CHANGE, dev, reg, pos, len);
-   }
-}
+// Called by driver when a register changes (ie a sensor value has changed)
+//
+int srdp_register_change(srdp_channel_t* channel, int dev, int reg, int pos, int len, const uint8_t* data);
 
 
-void srdp_loop(srdp_channel_t* channel) {
-
-}
+// Called by driver to let SRDP processing happen.
+//
+void srdp_loop(srdp_channel_t* channel);
 
 #endif // SRDP_H
