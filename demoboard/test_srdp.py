@@ -95,7 +95,7 @@ class DemoBoardSerialProtocol(Protocol):
 
 
    def doTest(self):
-      #self.toggleLed()
+      self.toggleLed()
       #self.readButton()
       reactor.callLater(1, self.doTest)
 

@@ -21,12 +21,11 @@
 Button::Button() {
 }
 
-void Button::attach(int pin, const char* name, int debounceInterval) {
+void Button::attach(int pin, int debounceInterval) {
    _pin = pin;
    _state = -1;
    _lastState = -1;
    _debounceInterval = debounceInterval;
-   _name = name;
    pinMode(_pin, INPUT);
 }
 

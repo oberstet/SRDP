@@ -24,7 +24,7 @@
 class Button {
    public:
       Button();
-      void attach(int pin, const char* name, int debounceInterval = 50);
+      void attach(int pin, int debounceInterval = 50);
       bool process();
       int getState() { return _state; };
       long getTime() { return _sampleTime; };
@@ -35,7 +35,6 @@ class Button {
       int _lastState;
       long _changed;
       int _debounceInterval;
-      const char* _name;
 };
 
 #endif // BUTTON_H

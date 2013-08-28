@@ -26,11 +26,11 @@
 class SmoothAnalogInput {
     public:
         SmoothAnalogInput();
-        void attach(int pin, const char* name);
+        void attach(int pin, int min, int max);
         void scale(int min, int max);
         int read();
         int raw();
-        void process();
+        bool process();
     private:
         int _samples[SMOOTH_ANALOG_INPUT_SIZE];
         int _pin;
@@ -39,7 +39,6 @@ class SmoothAnalogInput {
         int _mapMax;
         int _res;
         int _last;
-        const char* _name;
         long _sampleTime;
 };
 

@@ -19,8 +19,6 @@
 #ifndef SRDP_H
 #define SRDP_H
 
-#include <Arduino.h>
-
 // | FT (2) | OP (3) | DEV (11) |
 
 // SRDP frame types
@@ -57,6 +55,25 @@
 #define SRDP_FRAME_HEADER_LEN  12
 #define SRDP_FRAME_DATA_MAX_LEN 100
 
+#define SRDP_ERR_NO_SUCH_DEVICE -1
+#define SRDP_ERR_NO_SUCH_REGISTER -2
+#define SRDP_ERR_INVALID_REG_POSLEN -3
+
+
+#include <unistd.h> 
+#include <sys/types.h>
+
+typedef long ssize_t;
+
+
+typedef ssize_t (*srdp_transport_write) (const uint8_t* data, size_t len);
+
+typedef ssize_t (*srdp_transport_read) (uint8_t* data, size_t len);
+
+typedef int (*srdp_register_write) (int dev, int reg, int pos, int len, const uint8_t* data);
+
+typedef int (*srdp_register_read) (int dev, int reg, int pos, int len, uint8_t* data);
+
 
 typedef union {
    uint8_t buffer[SRDP_FRAME_HEADER_LEN];
@@ -80,20 +97,30 @@ typedef struct {
 typedef struct {
    srdp_frame_t in;
    srdp_frame_t out;
+
+   int needed;
+
    uint16_t _seq_in;
    uint16_t _seq_out;
 
    uint32_t reg_change_acks;
    uint32_t reg_change_errs;
+
+   srdp_transport_write transport_write;
+   srdp_transport_read transport_read;
+   srdp_register_write register_write;
+   srdp_register_read register_read;
 } srdp_channel_t;
 
 
 void srdp_init_channel(srdp_channel_t* channel) {
    channel->_seq_in = 0;
    channel->_seq_out = 0;
+   channel->needed = SRDP_FRAME_HEADER_LEN;
 }
 
-void srdp_send_frame(srdp_channel_t* channel, int op, int dev, int reg, int pos, int len) {
+
+void srdp_send_frame(srdp_channel_t* channel, int op, int dev, int reg, size_t pos, size_t len) {
 
    if (op == OPCODE_REGISTER_CHANGE) {
       // for adapter initiated frames, we have an outgoing
@@ -116,10 +143,25 @@ void srdp_send_frame(srdp_channel_t* channel, int op, int dev, int reg, int pos,
    channel->out.header.fields.crc16 = 0;
 
    // now transmit frame header and data
-   Serial.write(channel->out.header.buffer, SRDP_FRAME_HEADER_LEN);
+   channel->transport_write(channel->out.header.buffer, SRDP_FRAME_HEADER_LEN);
    if (len > 0) {
-      Serial.write(channel->out.data, len);
+      channel->transport_write(channel->out.data, len);
    }
+}
+
+
+int srdp_register_change(srdp_channel_t* channel, int dev, int reg, int pos, int len, const uint8_t* data) {
+   if (true) {
+      for (int i = 0; i < len; ++i) {
+         channel->out.data[i] = data[i];
+      }
+      srdp_send_frame(channel, OPCODE_REGISTER_CHANGE, dev, reg, pos, len);
+   }
+}
+
+
+void srdp_loop(srdp_channel_t* channel) {
+
 }
 
 #endif // SRDP_H

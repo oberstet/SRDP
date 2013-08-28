@@ -27,23 +27,21 @@ SmoothAnalogInput::SmoothAnalogInput() {
     _last = -1;
 }
 
-void SmoothAnalogInput::process() {
+bool SmoothAnalogInput::process() {
   int value = read();
   if (value != _last) {
     _last = value;
-    Serial.print(_name);
-    Serial.print('\t');
-    Serial.print(_sampleTime);
-    Serial.print('\t');
-    Serial.print(_last);
-    Serial.println();
-  }  
+    return true;
+  } else {
+    return false;
+  }
 }
 
-void SmoothAnalogInput::attach(int pin, const char* name) {
+void SmoothAnalogInput::attach(int pin, int min, int max) {
+
+    scale(min, max);
 
     _pin = pin;
-    _name = name;
     _index = 0;
 
     int start = analogRead(pin);
