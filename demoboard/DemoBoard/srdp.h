@@ -58,10 +58,12 @@
 #define SRDP_ERR_NO_SUCH_DEVICE -1
 #define SRDP_ERR_NO_SUCH_REGISTER -2
 #define SRDP_ERR_INVALID_REG_POSLEN -3
+#define SRDP_ERR_INVALID_REG_OP -4
 
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 typedef long ssize_t;
 
@@ -83,6 +85,10 @@ typedef int (*srdp_register_read) (int dev, int reg, int pos, int len, uint8_t* 
 //
 typedef int (*srdp_register_write) (int dev, int reg, int pos, int len, const uint8_t* data);
 
+
+// Callback for register watch handler fired when host requests to watch or unwatch a register
+//
+typedef int (*srdp_register_watch) (int dev, int reg, bool enable);
 
 
 // SRDP frame header
@@ -126,6 +132,7 @@ typedef struct {
    srdp_transport_read transport_read;
    srdp_register_write register_write;
    srdp_register_read register_read;
+   srdp_register_watch register_watch;
 } srdp_channel_t;
 
 

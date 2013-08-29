@@ -114,12 +114,9 @@ int register_read(int dev, int reg, int pos, int len, uint8_t* data) {
 // Register write handler called when host requests to write a register
 //
 int register_write(int dev, int reg, int pos, int len, const uint8_t* data) {
-   //
-   // Device 1
-   //
-   if (dev == 1) {
+   if (dev == IDX_DEV) {
       switch (reg) {
-         //
+         
          // LED 1 (red)
          // LED 2 (green)
          //
@@ -136,7 +133,7 @@ int register_write(int dev, int reg, int pos, int len, const uint8_t* data) {
             } else {
                return SRDP_ERR_INVALID_REG_POSLEN;
             }
-         //
+
          // LED 3 (RGB)
          //
          case IDX_REG_LED3:
@@ -152,6 +149,39 @@ int register_write(int dev, int reg, int pos, int len, const uint8_t* data) {
    } else {
       return SRDP_ERR_NO_SUCH_DEVICE;
    }
+}
+
+int watched = 0;
+
+// Register watch handler called when host requests to watch a register
+//
+int register_watch(int dev, int reg, bool enable) {
+   if (dev == IDX_DEV) {
+      switch (reg) {
+         case IDX_REG_BTN1:
+         case IDX_REG_BTN2:
+            if (enable) {
+               watched |= 1 << reg;
+            } else {
+               watched &= ~(1 << reg);
+            }
+            return 0;
+         case IDX_REG_LED1:
+         case IDX_REG_LED2:
+         case IDX_REG_LED3:
+            return SRDP_ERR_INVALID_REG_OP;
+         default:
+            return SRDP_ERR_NO_SUCH_REGISTER;
+      }
+   } else {
+      return SRDP_ERR_NO_SUCH_DEVICE;
+   }
+}
+
+
+// Register unwatch handler called when host requests to unwatch a register
+//
+int register_unwatch(int dev, int reg) {
 }
 
 
@@ -241,13 +271,13 @@ void loop() {
 
    // process buttons
    //
-   if (btn1.process()) {
+   if (btn1.process() && (watched |= 1 << IDX_REG_BTN1)) {
       // when button changed, report change to SRDP
       uint8_t data = btn1.getState();
       srdp_register_change(&channel, IDX_DEV, IDX_REG_BTN1, 0, 1, &data);
    }
 
-   if (btn2.process()) {
+   if (btn2.process() && (watched |= 1 << IDX_REG_BTN2)) {
       uint8_t data = btn2.getState();
       srdp_register_change(&channel, IDX_DEV, IDX_REG_BTN2, 0, 1, &data);
    }
