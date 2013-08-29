@@ -40,7 +40,6 @@
 #define PIN_BTN1    22
 #define PIN_BTN2    23
 
-
 // Indices of SRDP Registers the Demoboard will expose
 //
 #define IDX_DEV         1
@@ -49,6 +48,16 @@
 #define IDX_REG_LED3    5
 #define IDX_REG_BTN1    6
 #define IDX_REG_BTN2    7
+
+// URIs of the driver and device electronic datasheet (EDS)
+//
+#define URI_DRIVER_EDS "FIXME"
+#define URI_DEVICE_EDS "FIXME"
+
+// UUIDs of the driver and device
+//
+#define UUID_DRIVER "FIXME"
+#define UUID_DEVICE "FIXME"
 
 
 // Wrappers for hardware components
@@ -66,7 +75,7 @@ srdp_channel_t channel;
 // Here we track which registers are watched by the host
 // When bit N is set, the host watched register N.
 //
-int watched = 0;
+int watched = -1;
 
 
 // Transport reader function used by the SRDP channel
@@ -99,7 +108,7 @@ int register_read(int dev, int reg, int pos, int len, uint8_t* data) {
          case IDX_REG_BTN1:
          case IDX_REG_BTN2:
             if (pos == 0 && len == 1) {
-               
+
                if (reg == IDX_REG_BTN1) {
                   data[0] = btn1.getState();
                } else {
@@ -172,7 +181,7 @@ int register_write(int dev, int reg, int pos, int len, const uint8_t* data) {
 }
 
 
-// Register watch handler called when host requests to watch a register
+// Register watch handler called when host requests to watch/unwatch a register
 //
 int register_watch(int dev, int reg, bool enable) {
    if (dev == IDX_DEV) {
@@ -216,6 +225,8 @@ void setup() {
    channel.register_read = register_read;
    channel.register_write = register_write;
    channel.register_watch = register_watch;
+   channel.uri_driver_eds = URI_DRIVER_EDS;
+   channel.uri_device_eds = URI_DEVICE_EDS;
 
    // LED 1
    pinMode(PIN_LED1, OUTPUT);

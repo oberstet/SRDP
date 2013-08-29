@@ -133,6 +133,10 @@ typedef struct {
    srdp_register_write register_write;
    srdp_register_read register_read;
    srdp_register_watch register_watch;
+
+   const char* uri_driver_eds;
+   const char* uri_device_eds;
+
 } srdp_channel_t;
 
 
