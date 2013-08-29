@@ -61,7 +61,13 @@ RgbLed led3;
 // SRDP channel to communicate with host
 //
 srdp_channel_t channel;
-  
+
+
+// Here we track which registers are watched by the host
+// When bit N is set, the host watched register N.
+//
+int watched = 0;
+
 
 // Transport reader function used by the SRDP channel
 //
@@ -93,6 +99,7 @@ int register_read(int dev, int reg, int pos, int len, uint8_t* data) {
          case IDX_REG_BTN1:
          case IDX_REG_BTN2:
             if (pos == 0 && len == 1) {
+               
                if (reg == IDX_REG_BTN1) {
                   data[0] = btn1.getState();
                } else {
@@ -102,6 +109,12 @@ int register_read(int dev, int reg, int pos, int len, uint8_t* data) {
             } else {
                return SRDP_ERR_INVALID_REG_POSLEN;
             }
+
+         case IDX_REG_LED1:
+         case IDX_REG_LED2:
+         case IDX_REG_LED3:
+            return SRDP_ERR_INVALID_REG_OP;
+
          default:
             return SRDP_ERR_NO_SUCH_REGISTER;
       }
@@ -123,6 +136,7 @@ int register_write(int dev, int reg, int pos, int len, const uint8_t* data) {
          case IDX_REG_LED1:
          case IDX_REG_LED2:
             if (pos == 0 && len == 1) {
+
                int pin = reg == IDX_REG_LED1 ? PIN_LED1 : PIN_LED2;
                if (data[0]) {
                   digitalWrite(pin, HIGH);
@@ -138,11 +152,17 @@ int register_write(int dev, int reg, int pos, int len, const uint8_t* data) {
          //
          case IDX_REG_LED3:
             if (pos == 0 && len == 3) {
+
                led3.write(data[0], data[1], data[2]);
                return len;
             } else {
                return SRDP_ERR_INVALID_REG_POSLEN;
             }
+
+         case IDX_REG_BTN1:
+         case IDX_REG_BTN2:
+            return SRDP_ERR_INVALID_REG_OP;
+
          default:
             return SRDP_ERR_NO_SUCH_REGISTER;
       }
@@ -151,7 +171,6 @@ int register_write(int dev, int reg, int pos, int len, const uint8_t* data) {
    }
 }
 
-int watched = 0;
 
 // Register watch handler called when host requests to watch a register
 //
@@ -179,12 +198,6 @@ int register_watch(int dev, int reg, bool enable) {
 }
 
 
-// Register unwatch handler called when host requests to unwatch a register
-//
-int register_unwatch(int dev, int reg) {
-}
-
-
 // Arduino setup function executed once after reset
 //
 void setup() {
@@ -198,10 +211,11 @@ void setup() {
    // setup SRDP channel over serial
    //
    srdp_init_channel(&channel);
-   channel.transport_write = transport_write;
    channel.transport_read = transport_read;
-   channel.register_write = register_write;
+   channel.transport_write = transport_write;
    channel.register_read = register_read;
+   channel.register_write = register_write;
+   channel.register_watch = register_watch;
 
    // LED 1
    pinMode(PIN_LED1, OUTPUT);
@@ -271,13 +285,15 @@ void loop() {
 
    // process buttons
    //
-   if (btn1.process() && (watched |= 1 << IDX_REG_BTN1)) {
+   if (btn1.process() && (watched & 1 << IDX_REG_BTN1)) {
+      // OR: simply trigger a read register .. code only once.
+
       // when button changed, report change to SRDP
       uint8_t data = btn1.getState();
       srdp_register_change(&channel, IDX_DEV, IDX_REG_BTN1, 0, 1, &data);
    }
 
-   if (btn2.process() && (watched |= 1 << IDX_REG_BTN2)) {
+   if (btn2.process() && (watched & 1 << IDX_REG_BTN2)) {
       uint8_t data = btn2.getState();
       srdp_register_change(&channel, IDX_DEV, IDX_REG_BTN2, 0, 1, &data);
    }
