@@ -35,6 +35,8 @@ class SrdpFrameHeader:
    SRDP_OP_WRITE   = 0x02
    SRDP_OP_CHANGE  = 0x03
 
+   SRDP_FRAME_HEADER_LEN = 12
+
    def __init__(self,
                 seq = 0,
                 frametype = 0,
@@ -63,6 +65,9 @@ class SrdpFrameHeader:
       self.position = 0
       self.length = 0
       self.crc16 = 0
+
+   def __str__(self):
+      return "FT = %x, OP = %x, DEV = %d, REG = %d, POS = %d, LEN = %d" % (self.frametype, self.opcode, self.device, self.register, self.position, self.length)
 
 
    def computeCrc(self, data = None):
@@ -98,7 +103,7 @@ class SrdpFrameHeader:
    
 
    def parse(self, data):
-      t = struct.unpack("<HHHHHH", data[0:10])
+      t = struct.unpack("<HHHHHH", data[0:SrdpFrameHeader.SRDP_FRAME_HEADER_LEN])
       self.frametype = (t[0] >> 14) & 0x03
       self.opcode = (t[0] >> 12) & 0x03
       self.device = t[0] & 0xfff

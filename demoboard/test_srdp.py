@@ -55,9 +55,20 @@ import struct
 
 class DemoBoardSerialProtocol(Protocol):
 
+   _STATE_WAIT_FOR_HEADER = 1
+   _STATE_WAIT_FOR_DATA = 2
+
+
    def __init__(self):
       self._ledToggle = False
       self._seq = 0
+
+      self._received = []
+      self._receivedNum = 0
+      self._needed = SrdpFrameHeader.SRDP_FRAME_HEADER_LEN
+
+      self._srdpFrameHeader = None
+      self._srdpFrameData = None
 
       self._send_queue = deque()
       self._send_queue_triggered = False
@@ -76,9 +87,67 @@ class DemoBoardSerialProtocol(Protocol):
          self._send()
 
 
+
    def dataReceived(self, data):
-      #print data
-      print binascii.hexlify(data)
+      self._received.append(data)
+      self._receivedNum += len(data)
+      if self._receivedNum >= self._needed:
+         data = ''.join(self._received)
+         self._received = []
+         self._receiveFrame(data)
+
+
+   def _receiveFrame(self, data):
+      if self._srdpFrameHeader is None:
+         self._srdpFrameHeader = SrdpFrameHeader()
+         self._srdpFrameHeader.parse(data[0:SrdpFrameHeader.SRDP_FRAME_HEADER_LEN])
+         rest = data[SrdpFrameHeader.SRDP_FRAME_HEADER_LEN:]
+         if False and (self._srdpFrameHeader.frametype, self._srdpFrameHeader.opcode) \
+            in [(SrdpFrameHeader.SRDP_FT_REQ, SrdpFrameHeader.SRDP_OP_SYNC),
+                (SrdpFrameHeader.SRDP_FT_REQ, SrdpFrameHeader.SRDP_OP_READ),
+                (SrdpFrameHeader.SRDP_FT_ACK, SrdpFrameHeader.SRDP_OP_WRITE)]:
+            self._srdpFrameHeader.dataLength = 0
+         else:
+            self._srdpFrameHeader.dataLength = self._srdpFrameHeader.length
+         self._needed = self._srdpFrameHeader.dataLength
+      else:
+         if self._srdpFrameHeader.dataLength > 0:
+            self._srdpFrameData = data[0:self._srdpFrameHeader.dataLength]
+            rest = data[self._srdpFrameHeader.dataLength:]
+         else:
+            self._srdpFrameData = None
+            rest = data
+         self._frameReceived()
+
+      if len(rest) < self._needed:
+         self._received.append(rest)
+         self._receivedNum = len(rest)
+         # need to receive more data
+      else:
+         self._receiveFrame(rest)
+
+
+   def _frameReceived(self):
+      self._processFrame()
+      self._srdpFrameHeader = None
+      self._srdpFrameData = None
+      self._needed = SrdpFrameHeader.SRDP_FRAME_HEADER_LEN
+
+
+   def _processFrame(self):
+      print "received frame: %s" % self._srdpFrameHeader
+      if self._srdpFrameData:
+         print binascii.hexlify(self._srdpFrameData)
+
+      if self._srdpFrameHeader.frametype == SrdpFrameHeader.SRDP_FT_REQ:
+         pass
+      elif self._srdpFrameHeader.frametype == SrdpFrameHeader.SRDP_FT_ACK:
+         if self._srdpFrameHeader.opcode == SrdpFrameHeader.SRDP_OP_WRITE:
+            pass
+      elif self._srdpFrameHeader.frametype == SrdpFrameHeader.SRDP_FT_ERROR:
+         pass
+      else:
+         pass
 
 
    def readRegister(self, device, register):
@@ -149,9 +218,9 @@ class DemoBoardSerialProtocol(Protocol):
       log.msg('Startup.')
       self.writeRegister(1, 1028, "\x01")
       self.writeRegister(1, 1033, "\x01")
-      self.writeRegister(1, 1032, struct.pack("<H", 255))
-      reactor.callLater(1, self.doTest)
-      reactor.callLater(3, self.doReadStats)
+      #self.writeRegister(1, 1032, struct.pack("<H", 255))
+      #reactor.callLater(1, self.doTest)
+      #reactor.callLater(3, self.doReadStats)
 
    def connectionMade(self):
       log.msg('Serial port connected.')
