@@ -71,6 +71,7 @@ class SrdpFrameHeader:
       self.length = 0
       self.crc16 = 0
 
+
    def __str__(self):
       return "FT = %x, OP = %x, DEV = %d, REG = %d, POS = %d, LEN = %d" % (self.frametype, self.opcode, self.device, self.register, self.position, self.length)
 
@@ -134,6 +135,7 @@ class SrdpProtocol(Protocol):
 
    def __init__(self):
       self._seq = 0
+      self._pending = {}
 
       self._received = []
       self._receivedNum = 0
@@ -230,6 +232,7 @@ class SrdpHostProtocol(SrdpProtocol):
 
    def readRegister(self, device, register, position = 0, length = 0):
       self._seq += 1
+      self._pending[self._seq] = None # FIXME: return Deferred that yields read result
       f = SrdpFrameHeader(seq = self._seq,
                           frametype = SrdpFrameHeader.SRDP_FT_REQ,
                           opcode = SrdpFrameHeader.SRDP_OP_READ,
@@ -263,7 +266,8 @@ class SrdpHostProtocol(SrdpProtocol):
    def _processFrame(self, header, data):
       if header.frametype == SrdpFrameHeader.SRDP_FT_REQ and \
          header.opcode == SrdpFrameHeader.SRDP_OP_CHANGE:
-         self.onRegisterChange(header.device, header.register, header.position, data)
+         res = self.onRegisterChange(header.device, header.register, header.position, data)
+
 
 
 class SrdpDriverProtocol(SrdpProtocol):
