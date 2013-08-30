@@ -211,52 +211,72 @@ class SrdpProtocol(Protocol):
 
 
    def _frameReceived(self):
-      print "received frame: %s" % self._srdpFrameHeader
-      if self._srdpFrameData:
-         print binascii.hexlify(self._srdpFrameData)
+      if False:
+         print "received frame: %s" % self._srdpFrameHeader
+         if self._srdpFrameData:
+            print binascii.hexlify(self._srdpFrameData)
 
-      ## check CRC
+      ## FIXME: check frame CRC
 
-      #self._processFrame(self._srdpFrameHeader.frametype,
-      #                   self._srdpFrameData)
+      self._processFrame(self._srdpFrameHeader, self._srdpFrameData)
 
       self._srdpFrameHeader = None
       self._srdpFrameData = None
       self._needed = SrdpFrameHeader.SRDP_FRAME_HEADER_LEN
 
 
-   def _processFrame(self, frametype, opcode, device, register, data):
-      pass
-
 
 class SrdpHostProtocol(SrdpProtocol):
 
-   def readRegister(self, device, register):
+   def readRegister(self, device, register, position = 0, length = 0):
       self._seq += 1
       f = SrdpFrameHeader(seq = self._seq,
                           frametype = SrdpFrameHeader.SRDP_FT_REQ,
                           opcode = SrdpFrameHeader.SRDP_OP_READ,
                           device = device,
-                          register = register)
+                          register = register,
+                          position = position,
+                          length = length)
       f.crc16 = f.computeCrc()
       wireData = f.serialize()
       self._write(wireData)
 
 
-   def writeRegister(self, device, register, data):
+   def writeRegister(self, device, register, data, position = 0):
       self._seq += 1
       f = SrdpFrameHeader(seq = self._seq,
                           frametype = SrdpFrameHeader.SRDP_FT_REQ,
                           opcode = SrdpFrameHeader.SRDP_OP_WRITE,
                           device = device,
                           register = register,
+                          position = position,
                           length = len(data))
       f.crc16 = f.computeCrc(data)
       wireData = f.serialize() + data
       self._write(wireData)
 
 
-   def  onRegisterChange(self):
+   def  onRegisterChange(self, device, register, position, data):
+      pass
+
+
+   def _processFrame(self, header, data):
+      if header.frametype == SrdpFrameHeader.SRDP_FT_REQ and \
+         header.opcode == SrdpFrameHeader.SRDP_OP_CHANGE:
+         self.onRegisterChange(header.device, header.register, header.position, data)
+
+
+class SrdpDriverProtocol(SrdpProtocol):
+
+   def onRegisterRead(self, device, register, position, length):
+      pass
+
+
+   def onRegisterWrite(self, device, register, position, data):
+      pass
+
+
+   def changeRegister(self, device, register, position, data):
       pass
 
 

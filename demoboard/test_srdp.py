@@ -36,7 +36,7 @@ from srdp import SrdpHostProtocol
 
 
 
-class DemoBoardOptions(usage.Options):
+class DemoBoardHostOptions(usage.Options):
    """
    Command line options for this app.
    """
@@ -49,7 +49,10 @@ class DemoBoardOptions(usage.Options):
 
 
 
-class DemoBoardSerialProtocol(SrdpHostProtocol):
+import binascii
+
+
+class DemoBoardHostProtocol(SrdpHostProtocol):
 
    def __init__(self):
       SrdpHostProtocol.__init__(self)
@@ -63,6 +66,9 @@ class DemoBoardSerialProtocol(SrdpHostProtocol):
       else:
          self.writeRegister(1, 1024, '\x00')
          self.writeRegister(1, 1025, '\x7e')
+
+   def  onRegisterChange(self, device, register, position, data):
+      print "DemoBoardHostProtocol::onRegisterChange", device, register, position, binascii.hexlify(data)
 
    def readButton(self):
       self.readRegister(1, 1027)
@@ -107,7 +113,7 @@ if __name__ == '__main__':
 
    ## parse options
    ##
-   options = DemoBoardOptions()
+   options = DemoBoardHostOptions()
    try:
       options.parseOptions()
    except usage.UsageError, errortext:
@@ -130,7 +136,7 @@ if __name__ == '__main__':
    ## serial connection to Arduino
    ##
    log.msg("Opening serial port %s [%d baud]" % (port, baudrate))
-   serialProtocol = DemoBoardSerialProtocol()
+   serialProtocol = DemoBoardHostProtocol()
    serialPort = SerialPort(serialProtocol, port, reactor, baudrate = baudrate)
 
    reactor.run()
