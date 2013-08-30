@@ -28,6 +28,8 @@ class Button {
       bool process();
       int getState() { return _state; };
       long getTime() { return _sampleTime; };
+      void setWatched(bool watched) { _watched = watched; };
+      bool isWatched() const { return _watched; };
    private:
       int _pin;
       int _state;
@@ -35,6 +37,7 @@ class Button {
       int _lastState;
       long _changed;
       int _debounceInterval;
+      bool _watched;
 };
 
 #endif // BUTTON_H

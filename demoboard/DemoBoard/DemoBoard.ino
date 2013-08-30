@@ -20,6 +20,8 @@
 // Arduino "Demoboard" SRDP Driver.
 //
 
+#include <string.h>
+
 #include "SmoothAnalogInput.h"
 #include "Button.h"
 #include "RgbLed.h"
@@ -75,9 +77,8 @@
 
 // UUIDs of the driver and device
 //
-#define UUID_DRIVER {0x6B, 0x32, 0xA0, 0x7A, 0x7F, 0xC8, 0x47, 0xBB, 0x9D, 0x81, 0xF1, 0x41, 0x55, 0x0F, 0x60, 0x4F}
-#define UUID_DEVICE {0x93, 0xA0, 0x1C, 0x71, 0x03, 0xFC, 0x4D, 0x9E, 0x85, 0x2E, 0xBD, 0x2D, 0x8C, 0x82, 0x4D, 0xE8}
-
+static const uint8_t UUID_DRIVER[] = {0x6B, 0x32, 0xA0, 0x7A, 0x7F, 0xC8, 0x47, 0xBB, 0x9D, 0x81, 0xF1, 0x41, 0x55, 0x0F, 0x60, 0x4F};
+static const uint8_t UUID_DEVICE[] = {0x93, 0xA0, 0x1C, 0x71, 0x03, 0xFC, 0x4D, 0x9E, 0x85, 0x2E, 0xBD, 0x2D, 0x8C, 0x82, 0x4D, 0xE8};
 
 
 // Wrappers for hardware components
@@ -92,15 +93,9 @@ RgbLed led3;
 srdp_channel_t channel;
 
 
-// Here we track which registers are watched by the host
-// When bit N is set, the host watched register N.
-//
-int watched = 0;
-
-
 // Transport reader function used by the SRDP channel
 //
-ssize_t transport_read (uint8_t* data, size_t len) {
+ssize_t transport_read (void* userdata, uint8_t* data, size_t len) {
    if (Serial.available() > 0) {
       return Serial.readBytes((char*) data, len);
    } else {
@@ -111,7 +106,7 @@ ssize_t transport_read (uint8_t* data, size_t len) {
 
 // Transport writer function used by the SRDP channel
 //
-ssize_t transport_write (const uint8_t* data, size_t len) {
+ssize_t transport_write (void* userdata, const uint8_t* data, size_t len) {
    Serial.write(data, len);
    return len;
 }
@@ -119,9 +114,33 @@ ssize_t transport_write (const uint8_t* data, size_t len) {
 
 // Register read handler called when host requests to read a register
 //
-int register_read(int dev, int reg, int pos, int len, uint8_t* data) {
+int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* data) {
    if (dev == IDX_DEV) {
+      int l;
+
       switch (reg) {
+
+         // Device UUID
+         //
+         case IDX_REG_ID:
+            l = sizeof(UUID_DEVICE);
+            if (pos == 0 && (len == l || len == 0)) {
+               memcpy(data, UUID_DEVICE, l);
+               return l;
+            } else {
+               return SRDP_ERR_INVALID_REG_POSLEN;
+            }
+
+         // Device EDS
+         //
+         case IDX_REG_EDS:
+            l = sizeof(URI_DEVICE_EDS);
+            if (pos == 0 && (len == l || len == 0)) {
+               strncpy((char*) data, URI_DEVICE_EDS, l);
+               return l;
+            } else {
+               return SRDP_ERR_INVALID_REG_POSLEN;
+            }
 
          // Buttons
          //
@@ -139,6 +158,8 @@ int register_read(int dev, int reg, int pos, int len, uint8_t* data) {
                return SRDP_ERR_INVALID_REG_POSLEN;
             }
 
+         // Potis
+         //
          case IDX_REG_POT1:
          case IDX_REG_POT2:
             if (pos == 0 && (len == 2 || len == 0)) {
@@ -152,6 +173,77 @@ int register_read(int dev, int reg, int pos, int len, uint8_t* data) {
             } else {
                return SRDP_ERR_INVALID_REG_POSLEN;
             }
+
+         // Poti 1/2, Button 1/2 : #watch
+         //
+         case IDX_REG_POT1_WATCH:
+         case IDX_REG_POT2_WATCH:
+         case IDX_REG_BTN1_WATCH:
+         case IDX_REG_BTN2_WATCH:
+            if (pos == 0 && len == 1) {
+               switch (reg) {
+                  case IDX_REG_POT1_WATCH:
+                     *((uint8_t*) data) = pot1.isWatched();
+                     break;
+                  case IDX_REG_POT2_WATCH:
+                     *((uint8_t*) data) = pot2.isWatched();
+                     break;
+                  case IDX_REG_BTN1_WATCH:
+                     *((uint8_t*) data) = btn1.isWatched();
+                     break;
+                  case IDX_REG_BTN2_WATCH:
+                     *((uint8_t*) data) = btn2.isWatched();
+                     break;
+                  default:
+                     // should not arrive here
+                     break;
+               }
+               return 1;
+            } else {
+               return SRDP_ERR_INVALID_REG_POSLEN;
+            }         
+
+         // Poti 1/2 : #max
+         //
+         case IDX_REG_POT1_MAX:
+         case IDX_REG_POT2_MAX:
+            if (pos == 0 && len == 2) {
+               switch (reg) {
+                  case IDX_REG_POT1_MAX:
+                     *((uint16_t*) data) = pot1.getMax();
+                     break;
+                  case IDX_REG_POT2_MAX:
+                     *((uint16_t*) data) = pot2.getMax();
+                     break;
+                  default:
+                     // should not arrive here
+                     break;
+               }
+               return 2;
+            } else {
+               return SRDP_ERR_INVALID_REG_POSLEN;
+            }         
+
+         // Poti 1/2 : #updateRate
+         //
+         case IDX_REG_POT1_URATE:
+         case IDX_REG_POT2_URATE:
+            if (pos == 0 && len == 2) {
+               switch (reg) {
+                  case IDX_REG_POT1_URATE:
+                     *((uint16_t*) data) = pot1.getUpdateRate();
+                     break;
+                  case IDX_REG_POT2_URATE:
+                     *((uint16_t*) data) = pot2.getUpdateRate();
+                     break;
+                  default:
+                     // should not arrive here
+                     break;
+               }
+               return 2;
+            } else {
+               return SRDP_ERR_INVALID_REG_POSLEN;
+            }         
 
          case IDX_REG_LED1:
          case IDX_REG_LED2:
@@ -169,7 +261,8 @@ int register_read(int dev, int reg, int pos, int len, uint8_t* data) {
 
 // Register write handler called when host requests to write a register
 //
-int register_write(int dev, int reg, int pos, int len, const uint8_t* data) {
+int register_write(void* userdata, int dev, int reg, int pos, int len, const uint8_t* data) {
+
    if (dev == IDX_DEV) {
       switch (reg) {
          
@@ -202,6 +295,79 @@ int register_write(int dev, int reg, int pos, int len, const uint8_t* data) {
                return SRDP_ERR_INVALID_REG_POSLEN;
             }
 
+         // Poti 1/2, Button 1/2 : #watch
+         //
+         case IDX_REG_POT1_WATCH:
+         case IDX_REG_POT2_WATCH:
+         case IDX_REG_BTN1_WATCH:
+         case IDX_REG_BTN2_WATCH:
+            if (pos == 0 && len == 1) {
+               switch (reg) {
+                  case IDX_REG_POT1_WATCH:
+                     pot1.setWatched(data[0] != 0);
+                     break;
+                  case IDX_REG_POT2_WATCH:
+                     pot2.setWatched(data[0] != 0);
+                     break;
+                  case IDX_REG_BTN1_WATCH:
+                     btn1.setWatched(data[0] != 0);
+                     break;
+                  case IDX_REG_BTN2_WATCH:
+                     btn2.setWatched(data[0] != 0);
+                     break;
+                  default:
+                     // should not arrive here
+                     break;
+               }
+               return 1;
+            } else {
+               return SRDP_ERR_INVALID_REG_POSLEN;
+            }         
+
+         // Poti 1/2 : #max
+         //
+         case IDX_REG_POT1_MAX:
+         case IDX_REG_POT2_MAX:
+            if (pos == 0 && len == 2) {
+               uint16_t max = *((const uint16_t*) data);
+               switch (reg) {
+                  case IDX_REG_POT1_MAX:
+                     pot1.scale(0, max);
+                     break;
+                  case IDX_REG_POT2_MAX:
+                     pot2.scale(0, max);
+                     break;
+                  default:
+                     // should not arrive here
+                     break;
+               }
+               return 2;
+            } else {
+               return SRDP_ERR_INVALID_REG_POSLEN;
+            }         
+
+         // Poti 1/2 : #updateRate
+         //
+         case IDX_REG_POT1_URATE:
+         case IDX_REG_POT2_URATE:
+            if (pos == 0 && len == 2) {
+               uint16_t urate = *((const uint16_t*) data);
+               switch (reg) {
+                  case IDX_REG_POT1_URATE:
+                     pot1.setUpdateRate(urate);
+                     break;
+                  case IDX_REG_POT2_URATE:
+                     pot2.setUpdateRate(urate);
+                     break;
+                  default:
+                     // should not arrive here
+                     break;
+               }
+               return 2;
+            } else {
+               return SRDP_ERR_INVALID_REG_POSLEN;
+            }         
+
          case IDX_REG_BTN1:         
          case IDX_REG_BTN2:
          case IDX_REG_POT1:
@@ -217,33 +383,7 @@ int register_write(int dev, int reg, int pos, int len, const uint8_t* data) {
 }
 
 
-// Register watch handler called when host requests to watch/unwatch a register
-//
-int register_watch(int dev, int reg, bool enable) {
-   if (dev == IDX_DEV) {
-      switch (reg) {
-         case IDX_REG_BTN1:
-         case IDX_REG_BTN2:
-            if (enable) {
-               watched |= 1 << reg;
-            } else {
-               watched &= ~(1 << reg);
-            }
-            return 0;
-         case IDX_REG_LED1:
-         case IDX_REG_LED2:
-         case IDX_REG_LED3:
-            return SRDP_ERR_INVALID_REG_OP;
-         default:
-            return SRDP_ERR_NO_SUCH_REGISTER;
-      }
-   } else {
-      return SRDP_ERR_NO_SUCH_DEVICE;
-   }
-}
-
-
-void log_message(const char* msg, int level) {
+void log_message(void* userdata, const char* msg, int level) {
    Serial.println(msg);
 }
 
@@ -256,7 +396,7 @@ void setup() {
    //
    Serial.begin(115200); // default SERIAL_8N1
    Serial.setTimeout(10);
-   Serial.flush();
+   //Serial.flush();
 
    // setup SRDP channel over serial
    //
@@ -265,8 +405,6 @@ void setup() {
    channel.transport_write = transport_write;
    channel.register_read = register_read;
    channel.register_write = register_write;
-   channel.uri_driver_eds = URI_DRIVER_EDS;
-   channel.uri_device_eds = URI_DEVICE_EDS;
    channel.log_message = log_message;
 
    // LED 1
@@ -290,32 +428,45 @@ void setup() {
 }
 
 
+
 // Arduino main run loop
 //
 void loop() {
 
+   // process SRDP
+   //
    while (Serial.available()) {
       srdp_loop(&channel);
    }
 
+
    // process buttons
    //
-   if (btn1.process() && (watched & 1 << IDX_REG_BTN1)) {
+   if (btn1.process() && btn1.isWatched()) {
       // OR: simply trigger a read register .. code only once.
 
       // when button changed, report change to SRDP
       uint8_t data = btn1.getState();
-      srdp_register_change(&channel, IDX_DEV, IDX_REG_BTN1, 0, 1, &data);
+      srdp_register_change(&channel, IDX_DEV, IDX_REG_BTN1, 0, sizeof(data), (const uint8_t*) &data);
    }
 
-   if (btn2.process() && (watched & 1 << IDX_REG_BTN2)) {
+   if (btn2.process() && btn2.isWatched()) {
       uint8_t data = btn2.getState();
-      srdp_register_change(&channel, IDX_DEV, IDX_REG_BTN2, 0, 1, &data);
+      srdp_register_change(&channel, IDX_DEV, IDX_REG_BTN2, 0, sizeof(data), (const uint8_t*) &data);
    }
 
 
-   pot1.process();
-   pot2.process();
+   // process potis
+   //
+   if (pot1.process() && pot1.isWatched()) {
+      uint16_t data = pot1.getState();
+      srdp_register_change(&channel, IDX_DEV, IDX_REG_POT1, 0, sizeof(data), (const uint8_t*) &data);
+   }
+
+   if (pot2.process() && pot2.isWatched()) {
+      uint16_t data = pot2.getState();
+      srdp_register_change(&channel, IDX_DEV, IDX_REG_POT2, 0, sizeof(data), (const uint8_t*) &data);
+   }
 
 
    // limit update frequency

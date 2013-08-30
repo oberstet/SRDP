@@ -25,6 +25,7 @@ SmoothAnalogInput::SmoothAnalogInput() {
     _mapMin = 0;
     _res = 1;
     _last = -1;
+    _watched = false;
 }
 
 bool SmoothAnalogInput::process() {

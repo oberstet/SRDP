@@ -28,11 +28,18 @@ class SmoothAnalogInput {
         SmoothAnalogInput();
         void attach(int pin, int min, int max);
         void scale(int min, int max);
+        int getMax() const { return _mapMax; };
         int read();
         int raw();
         bool process();
         int getState() { return _last; };
         long getTime() { return _sampleTime; };
+
+        void setWatched(bool watched) { _watched = watched; };
+        bool isWatched() const { return _watched; };
+
+        void setUpdateRate(int rate) { _updateRate = rate; };
+        int getUpdateRate() const { return _updateRate; };
     private:
         int _samples[SMOOTH_ANALOG_INPUT_SIZE];
         int _pin;
@@ -42,6 +49,8 @@ class SmoothAnalogInput {
         int _res;
         int _last;
         long _sampleTime;
+        bool _watched;
+        int _updateRate;
 };
 
 #endif // SMOOTHANALOGINPUT_H

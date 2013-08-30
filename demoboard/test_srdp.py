@@ -50,6 +50,7 @@ class DemoBoardOptions(usage.Options):
 
 
 from collections import deque
+import struct
 
 
 class DemoBoardSerialProtocol(Protocol):
@@ -127,19 +128,26 @@ class DemoBoardSerialProtocol(Protocol):
       self.readRegister(1, 1027)
 
    def readAnalog(self):
-      self.readRegister(1, 1031)
+      #self.readRegister(1, 1031)
+      self.readRegister(1, 1) # UUID
+      #self.readRegister(1, 2) # EDS
 
 
    def doTest(self):
-      self.toggleLed()
+      #self.toggleLed()
       #self.readButton()
       #self.readAnalog()
       reactor.callLater(1, self.doTest)
 
+   def startup(self):
+      log.msg('Startup.')
+      self.writeRegister(1, 1033, "\x01")
+      self.writeRegister(1, 1032, struct.pack("<H", 255))
+      reactor.callLater(1, self.doTest)
 
    def connectionMade(self):
       log.msg('Serial port connected.')
-      reactor.callLater(1, self.doTest)
+      reactor.callLater(1, self.startup)
 
    def connectionLost(self, reason):
       log.msg('Serial port connection lost: %s' % reason)
