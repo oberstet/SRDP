@@ -16,12 +16,17 @@
 ##
 ###############################################################################
 
-__all__ = ("SrdpFrameHeader",)
+__all__ = ("SrdpProtocol", "SrdpHostProtocol",)
 
 import struct, binascii
+from collections import deque
 
 ## https://pypi.python.org/pypi/crcmod
 import crcmod
+
+from twisted.internet.protocol import Protocol
+from twisted.internet import reactor
+
 
 
 class SrdpFrameHeader:
@@ -71,10 +76,6 @@ class SrdpFrameHeader:
 
 
    def computeCrc(self, data = None):
-      if data:
-         self.length = len(data)
-      else:
-         self.length = 0
 
       crc = crcmod.predefined.PredefinedCrc("crc-16")
 
@@ -86,10 +87,10 @@ class SrdpFrameHeader:
                            self.length)
       crc.update(header)
 
-      if self.length:
+      if data:
          crc.update(data)
 
-      self.crc16 = crc.crcValue
+      return crc.crcValue
 
 
    def serialize(self):
@@ -126,6 +127,137 @@ class SrdpFrameHeader:
       if self.length:
          crc.update(data)
       return self.crc16 == crc.crcValue
+
+
+
+class SrdpProtocol(Protocol):
+
+   def __init__(self):
+      self._seq = 0
+
+      self._received = []
+      self._receivedNum = 0
+      self._needed = SrdpFrameHeader.SRDP_FRAME_HEADER_LEN
+
+      self._srdpFrameHeader = None
+      self._srdpFrameData = None
+
+      self._send_queue = deque()
+      self._send_queue_triggered = False
+
+
+   def _send(self):
+      if len(self._send_queue) > 0:
+         d = self._send_queue.popleft()
+         self.transport.write(d)
+         reactor.callLater(0.1, self._send)
+      else:
+         self._send_queue_triggered = False
+
+
+   def _trigger(self):
+      if not self._send_queue_triggered:
+         self._send_queue_triggered = True
+         self._send()
+
+
+   def _write(self, data):
+      #print binascii.hexlify(data)
+      if False:
+         for c in data:
+            self._send_queue.append(c)
+         self._trigger()
+      else:
+         self.transport.write(data)
+
+
+   def dataReceived(self, data):
+      self._received.append(data)
+      self._receivedNum += len(data)
+      if self._receivedNum >= self._needed:
+         data = ''.join(self._received)
+         self._received = []
+         self._receiveFrame(data)
+
+
+   def _receiveFrame(self, data):
+      if self._srdpFrameHeader is None:
+         self._srdpFrameHeader = SrdpFrameHeader()
+         self._srdpFrameHeader.parse(data[0:SrdpFrameHeader.SRDP_FRAME_HEADER_LEN])
+         rest = data[SrdpFrameHeader.SRDP_FRAME_HEADER_LEN:]
+         if False and (self._srdpFrameHeader.frametype, self._srdpFrameHeader.opcode) \
+            in [(SrdpFrameHeader.SRDP_FT_REQ, SrdpFrameHeader.SRDP_OP_SYNC),
+                (SrdpFrameHeader.SRDP_FT_REQ, SrdpFrameHeader.SRDP_OP_READ),
+                (SrdpFrameHeader.SRDP_FT_ACK, SrdpFrameHeader.SRDP_OP_WRITE)]:
+            self._srdpFrameHeader.dataLength = 0
+         else:
+            self._srdpFrameHeader.dataLength = self._srdpFrameHeader.length
+         self._needed = self._srdpFrameHeader.dataLength
+      else:
+         if self._srdpFrameHeader.dataLength > 0:
+            self._srdpFrameData = data[0:self._srdpFrameHeader.dataLength]
+            rest = data[self._srdpFrameHeader.dataLength:]
+         else:
+            self._srdpFrameData = None
+            rest = data
+         self._frameReceived()
+
+      if len(rest) < self._needed:
+         self._received.append(rest)
+         self._receivedNum = len(rest)
+         # need to receive more data
+      else:
+         self._receiveFrame(rest)
+
+
+   def _frameReceived(self):
+      print "received frame: %s" % self._srdpFrameHeader
+      if self._srdpFrameData:
+         print binascii.hexlify(self._srdpFrameData)
+
+      ## check CRC
+
+      #self._processFrame(self._srdpFrameHeader.frametype,
+      #                   self._srdpFrameData)
+
+      self._srdpFrameHeader = None
+      self._srdpFrameData = None
+      self._needed = SrdpFrameHeader.SRDP_FRAME_HEADER_LEN
+
+
+   def _processFrame(self, frametype, opcode, device, register, data):
+      pass
+
+
+class SrdpHostProtocol(SrdpProtocol):
+
+   def readRegister(self, device, register):
+      self._seq += 1
+      f = SrdpFrameHeader(seq = self._seq,
+                          frametype = SrdpFrameHeader.SRDP_FT_REQ,
+                          opcode = SrdpFrameHeader.SRDP_OP_READ,
+                          device = device,
+                          register = register)
+      f.crc16 = f.computeCrc()
+      wireData = f.serialize()
+      self._write(wireData)
+
+
+   def writeRegister(self, device, register, data):
+      self._seq += 1
+      f = SrdpFrameHeader(seq = self._seq,
+                          frametype = SrdpFrameHeader.SRDP_FT_REQ,
+                          opcode = SrdpFrameHeader.SRDP_OP_WRITE,
+                          device = device,
+                          register = register,
+                          length = len(data))
+      f.crc16 = f.computeCrc(data)
+      wireData = f.serialize() + data
+      self._write(wireData)
+
+
+   def  onRegisterChange(self):
+      pass
 
 
 
