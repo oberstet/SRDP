@@ -31,7 +31,8 @@ void Button::attach(int pin, int debounceInterval) {
 
 bool Button::process() {
    int val = digitalRead(_pin) ? 0 : 1;
-   long now = millis();
+   //unsigned long now = millis();
+   unsigned long now = micros();
 
    if (val != _lastState) {
       _changed = now;

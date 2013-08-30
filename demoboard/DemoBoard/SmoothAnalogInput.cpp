@@ -46,7 +46,8 @@ void SmoothAnalogInput::attach(int pin, int min, int max) {
     _index = 0;
 
     int start = analogRead(pin);
-    _sampleTime = millis();
+    //_sampleTime = millis();
+    _sampleTime = micros();
     
     for(int i = 0; i < SMOOTH_ANALOG_INPUT_SIZE; i++) {
         _samples[i] = start;
@@ -71,7 +72,8 @@ int SmoothAnalogInput::raw() {
     }
 
     int value = analogRead(_pin);
-    _sampleTime = millis();
+    //_sampleTime = millis();
+    _sampleTime = micros();
     
     int last = _samples[_index];
     if (abs(value - last) <= _res) {

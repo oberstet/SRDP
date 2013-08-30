@@ -134,6 +134,18 @@ typedef struct {
    //
    int _bytes_received;
 
+   // the number of "SRDP_FT_REQ / SRDP_OP_CHANGE" frames we sent to the host
+   //
+   uint32_t _sent_reg_change_req;
+
+   // the number of "SRDP_FT_ACK / SRDP_OP_CHANGE" frames we received from the host
+   //
+   uint32_t _recv_reg_change_ack;
+
+   // the number of "SRDP_FT_ERR / SRDP_OP_CHANGE" frames we received from the host
+   //
+   uint32_t _recv_reg_change_err;
+
 } srdp_channel_t;
 
 

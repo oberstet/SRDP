@@ -139,11 +139,19 @@ class DemoBoardSerialProtocol(Protocol):
       #self.readAnalog()
       reactor.callLater(1, self.doTest)
 
+   def doReadStats(self):
+      self.readRegister(0, 4)
+      self.readRegister(0, 5)
+      self.readRegister(0, 6)
+      reactor.callLater(3, self.doReadStats)
+
    def startup(self):
       log.msg('Startup.')
+      self.writeRegister(1, 1028, "\x01")
       self.writeRegister(1, 1033, "\x01")
       self.writeRegister(1, 1032, struct.pack("<H", 255))
       reactor.callLater(1, self.doTest)
+      reactor.callLater(3, self.doReadStats)
 
    def connectionMade(self):
       log.msg('Serial port connected.')

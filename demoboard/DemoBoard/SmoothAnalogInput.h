@@ -33,7 +33,7 @@ class SmoothAnalogInput {
         int raw();
         bool process();
         int getState() { return _last; };
-        long getTime() { return _sampleTime; };
+        unsigned long getTime() { return _sampleTime; };
 
         void setWatched(bool watched) { _watched = watched; };
         bool isWatched() const { return _watched; };
@@ -48,7 +48,7 @@ class SmoothAnalogInput {
         int _mapMax;
         int _res;
         int _last;
-        long _sampleTime;
+        unsigned long _sampleTime;
         bool _watched;
         int _updateRate;
 };

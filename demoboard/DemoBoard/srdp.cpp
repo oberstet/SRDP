@@ -55,7 +55,39 @@ void send_frame(srdp_channel_t* channel, int ft, int op, int dev, int reg, size_
 }
 
 
-void process_incoming_frame(srdp_channel_t* channel) {
+// Read handler for driver builtin registers
+//
+int driver_register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* data) {
+
+   srdp_channel_t* channel = (srdp_channel_t*) userdata;
+
+   if (dev == 0) {
+      int l;
+
+      switch (reg) {
+
+         // Stats: Register Changes
+         //
+         case 4:
+            if (pos == 0 && (len == 12 || len == 0)) {
+               *((uint32_t*) (data + 0)) = channel->_sent_reg_change_req;
+               *((uint32_t*) (data + 4)) = channel->_recv_reg_change_ack;
+               *((uint32_t*) (data + 8)) = channel->_recv_reg_change_err;
+               return 12;
+            } else {
+               return SRDP_ERR_INVALID_REG_POSLEN;
+            }
+
+         default:
+            return SRDP_ERR_NO_SUCH_REGISTER;
+      }
+   } else {
+      return SRDP_ERR_NO_SUCH_DEVICE;
+   }
+}
+
+
+void process_incoming_frame (srdp_channel_t* channel) {
 
    int ft = (channel->in.header.fields.opdev >> 14) & 0x3;
    int op = (channel->in.header.fields.opdev >> 12) & 0x3;
@@ -73,15 +105,20 @@ void process_incoming_frame(srdp_channel_t* channel) {
             // register read
             //
             case SRDP_OP_READ:
-               if (channel->register_read) {
+               if (dev == 0 && reg < 1024) {
+                  // driver builtin register
+                  res = driver_register_read(channel, dev, reg, pos, len, channel->out.data);
+               }
+               else if (channel->register_read) {
                   res = channel->register_read(channel->userdata, dev, reg, pos, len, channel->out.data);
-                  if (res < 0) {
-                     // FIXME: send error
-                  } else {
-                     send_frame(channel, SRDP_FT_ACK, SRDP_OP_READ, dev, reg, pos, res);
-                  }
                } else {
                   // FIXME: send error
+               }
+
+               if (res < 0) {
+                  // FIXME: send error
+               } else {
+                  send_frame(channel, SRDP_FT_ACK, SRDP_OP_READ, dev, reg, pos, res);
                }
                break;
 
@@ -109,9 +146,19 @@ void process_incoming_frame(srdp_channel_t* channel) {
          break;
 
       case SRDP_FT_ACK:
+         if (op == SRDP_OP_CHANGE) {
+            channel->_recv_reg_change_ack += 1;
+         } else {
+            // FIXME: error
+         }         
          break;
 
       case SRDP_FT_ERR:
+         if (op == SRDP_OP_CHANGE) {
+            channel->_recv_reg_change_err += 1;
+         } else {
+            // FIXME: error
+         }         
          break;
 
       default:
@@ -136,6 +183,10 @@ void srdp_init_channel(srdp_channel_t* channel) {
    channel->_seq_out = 0;
 
    channel->_bytes_received = 0;
+
+   channel->_sent_reg_change_req = 0;
+   channel->_recv_reg_change_ack = 0;
+   channel->_recv_reg_change_err = 0;
 }
 
 
@@ -145,6 +196,7 @@ int srdp_register_change(srdp_channel_t* channel, int dev, int reg, int pos, int
          channel->out.data[i] = data[i];
       }
       send_frame(channel, SRDP_FT_REQ, SRDP_OP_CHANGE, dev, reg, pos, len);
+      channel->_sent_reg_change_req += 1;
    }
 }
 

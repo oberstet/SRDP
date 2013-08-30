@@ -88,7 +88,12 @@ Button btn1, btn2;
 RgbLed led3;
 
 
-// SRDP channel to communicate with host
+// SRDP channel to communicate with host.
+//
+// Note: the SRDP channel (and all it's internals) is designed to be
+// able to resides on heap or stack. In our example here, the channel
+// and all it's internal stuff resides on the stack (which is great
+// for use on tiny embedded platforms like Arduino).
 //
 srdp_channel_t channel;
 
@@ -146,14 +151,16 @@ int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* 
          //
          case IDX_REG_BTN1:
          case IDX_REG_BTN2:
-            if (pos == 0 && (len == 1 || len == 0)) {
+            if (pos == 0 && (len == 5 || len == 0)) {
 
                if (reg == IDX_REG_BTN1) {
-                  data[0] = btn1.getState();
+                  *((uint32_t*) (data + 0)) = btn1.getTime();
+                  *((uint8_t*) (data + 4)) = btn1.getState();
                } else {
-                  data[0] = btn2.getState();
+                  *((uint32_t*) (data + 0)) = btn2.getTime();
+                  *((uint8_t*) (data + 4)) = btn2.getState();
                }
-               return 1;
+               return 5;
             } else {
                return SRDP_ERR_INVALID_REG_POSLEN;
             }
@@ -162,14 +169,16 @@ int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* 
          //
          case IDX_REG_POT1:
          case IDX_REG_POT2:
-            if (pos == 0 && (len == 2 || len == 0)) {
+            if (pos == 0 && (len == 6 || len == 0)) {
 
                if (reg == IDX_REG_POT1) {
-                  *((uint16_t*) data) = pot1.getState();
+                  *((uint32_t*) (data + 0)) = pot1.getTime();
+                  *((uint16_t*) (data + 4)) = pot1.getState();
                } else {
-                  *((uint16_t*) data) = pot2.getState();
+                  *((uint32_t*) (data + 0)) = pot2.getTime();
+                  *((uint16_t*) (data + 4)) = pot2.getState();
                }
-               return 2;
+               return 6;
             } else {
                return SRDP_ERR_INVALID_REG_POSLEN;
             }
@@ -405,7 +414,7 @@ void setup() {
    channel.transport_write = transport_write;
    channel.register_read = register_read;
    channel.register_write = register_write;
-   channel.log_message = log_message;
+   //channel.log_message = log_message;
 
    // LED 1
    pinMode(PIN_LED1, OUTPUT);
@@ -419,8 +428,8 @@ void setup() {
    led3.attach(PIN_LED3_R, PIN_LED3_G, PIN_LED3_B1, PIN_LED3_B2);
   
    // Buttons
-   btn1.attach(PIN_BTN1, 2);
-   btn2.attach(PIN_BTN2, 2);
+   btn1.attach(PIN_BTN1);
+   btn2.attach(PIN_BTN2);
   
    // Potis
    pot1.attach(PIN_POT1, 0, 1000);
@@ -446,12 +455,16 @@ void loop() {
       // OR: simply trigger a read register .. code only once.
 
       // when button changed, report change to SRDP
-      uint8_t data = btn1.getState();
+      uint8_t data[5];
+      *((uint32_t*) (data + 0)) = btn1.getTime();
+      *((uint8_t*) (data + 4)) = btn1.getState();
       srdp_register_change(&channel, IDX_DEV, IDX_REG_BTN1, 0, sizeof(data), (const uint8_t*) &data);
    }
 
    if (btn2.process() && btn2.isWatched()) {
-      uint8_t data = btn2.getState();
+      uint8_t data[5];
+      *((uint32_t*) (data + 0)) = btn2.getTime();
+      *((uint8_t*) (data + 4)) = btn2.getState();
       srdp_register_change(&channel, IDX_DEV, IDX_REG_BTN2, 0, sizeof(data), (const uint8_t*) &data);
    }
 
@@ -459,12 +472,16 @@ void loop() {
    // process potis
    //
    if (pot1.process() && pot1.isWatched()) {
-      uint16_t data = pot1.getState();
+      uint8_t data[6];
+      *((uint32_t*) (data + 0)) = pot1.getTime();
+      *((uint16_t*) (data + 4)) = pot1.getState();
       srdp_register_change(&channel, IDX_DEV, IDX_REG_POT1, 0, sizeof(data), (const uint8_t*) &data);
    }
 
    if (pot2.process() && pot2.isWatched()) {
-      uint16_t data = pot2.getState();
+      uint8_t data[6];
+      *((uint32_t*) (data + 0)) = pot2.getTime();
+      *((uint16_t*) (data + 4)) = pot2.getState();
       srdp_register_change(&channel, IDX_DEV, IDX_REG_POT2, 0, sizeof(data), (const uint8_t*) &data);
    }
 
