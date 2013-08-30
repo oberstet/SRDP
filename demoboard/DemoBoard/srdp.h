@@ -19,46 +19,31 @@
 #ifndef SRDP_H
 #define SRDP_H
 
-// | FT (2) | OP (3) | DEV (11) |
-
 // SRDP frame types
 //
 #define SRDP_FT_REQ     0x01
 #define SRDP_FT_ACK     0x02
-#define SRDP_FT_ERROR   0x03
+#define SRDP_FT_ERR     0x03
 
 // SRDP operations
 //
-#define SRDP_OP_SYNC    0x01
-#define SRDP_OP_READ    0x02
-#define SRDP_OP_WRITE   0x03
-#define SRDP_OP_WATCH   0x04
-#define SRDP_OP_UNWATCH 0x05
-#define SRDP_OP_CHANGE  0x06
+#define SRDP_OP_SYNC    0x00
+#define SRDP_OP_READ    0x01
+#define SRDP_OP_WRITE   0x02
+#define SRDP_OP_CHANGE  0x03
 
+// SRDP errors
+//
+#define SRDP_ERR_NOT_IMPLEMENTED       -1
+#define SRDP_ERR_NO_SUCH_DEVICE        -2
+#define SRDP_ERR_NO_SUCH_REGISTER      -3
+#define SRDP_ERR_INVALID_REG_POSLEN    -4
+#define SRDP_ERR_INVALID_REG_OP        -5
 
-
-#define OPCODE_SYNCHRONIZE      0x00
-#define OPCODE_READ_REGISTER    0x01
-#define OPCODE_READ_ACK         0x02
-#define OPCODE_WRITE_REGISTER   0x03
-#define OPCODE_WRITE_ACK        0x04
-#define OPCODE_WATCH_REGISTER   0x05
-#define OPCODE_WATCH_ACK        0x06
-#define OPCODE_UNWATCH_REGISTER 0x07
-#define OPCODE_UNWATCH_ACK      0x08
-#define OPCODE_REGISTER_CHANGE  0x09
-#define OPCODE_CHANGE_ACK       0x0A
-#define OPCODE_ERROR            0x0B
-
-
-#define SRDP_FRAME_HEADER_LEN  12
-#define SRDP_FRAME_DATA_MAX_LEN 100
-
-#define SRDP_ERR_NO_SUCH_DEVICE -1
-#define SRDP_ERR_NO_SUCH_REGISTER -2
-#define SRDP_ERR_INVALID_REG_POSLEN -3
-#define SRDP_ERR_INVALID_REG_OP -4
+// SRDP limits
+//
+#define SRDP_FRAME_HEADER_LEN    12
+#define SRDP_FRAME_DATA_MAX_LEN  100 // MUST BE < 2^16 - SRDP_FRAME_HEADER_LEN
 
 
 #include <stddef.h>
@@ -86,9 +71,8 @@ typedef int (*srdp_register_read) (int dev, int reg, int pos, int len, uint8_t* 
 typedef int (*srdp_register_write) (int dev, int reg, int pos, int len, const uint8_t* data);
 
 
-// Callback for register watch handler fired when host requests to watch or unwatch a register
-//
-typedef int (*srdp_register_watch) (int dev, int reg, bool enable);
+typedef void (*srdp_log_message) (const char* msg, int level);
+
 
 
 // SRDP frame header
@@ -96,8 +80,8 @@ typedef int (*srdp_register_watch) (int dev, int reg, bool enable);
 typedef union {
    uint8_t buffer[SRDP_FRAME_HEADER_LEN];
    struct {
-      uint16_t seq;
       uint16_t opdev;
+      uint16_t seq;
       uint16_t reg;
       uint16_t pos;
       uint16_t len;
@@ -132,10 +116,12 @@ typedef struct {
    srdp_transport_read transport_read;
    srdp_register_write register_write;
    srdp_register_read register_read;
-   srdp_register_watch register_watch;
+   srdp_log_message log_message;
 
    const char* uri_driver_eds;
    const char* uri_device_eds;
+
+   int _bytes_received;
 
 } srdp_channel_t;
 

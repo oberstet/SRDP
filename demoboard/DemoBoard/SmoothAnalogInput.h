@@ -31,6 +31,8 @@ class SmoothAnalogInput {
         int read();
         int raw();
         bool process();
+        int getState() { return _last; };
+        long getTime() { return _sampleTime; };
     private:
         int _samples[SMOOTH_ANALOG_INPUT_SIZE];
         int _pin;

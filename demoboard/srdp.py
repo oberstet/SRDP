@@ -26,29 +26,26 @@ import crcmod
 
 class SrdpFrameHeader:
 
-   OPCODE_SYNCHRONIZE      = 0x00
-   OPCODE_READ_REGISTER    = 0x01
-   OPCODE_READ_ACK         = 0x02
-   OPCODE_WRITE_REGISTER   = 0x03
-   OPCODE_WRITE_ACK        = 0x04
-   OPCODE_WATCH_REGISTER   = 0x05
-   OPCODE_WATCH_ACK        = 0x06
-   OPCODE_UNWATCH_REGISTER = 0x07
-   OPCODE_UNWATCH_ACK      = 0x08
-   OPCODE_REGISTER_CHANGE  = 0x09
-   OPCODE_CHANGE_ACK       = 0x0A
-   OPCODE_ERROR            = 0x0B
+   SRDP_FT_REQ     = 0x01
+   SRDP_FT_ACK     = 0x02
+   SRDP_FT_ERROR   = 0x03
 
+   SRDP_OP_SYNC    = 0x00
+   SRDP_OP_READ    = 0x01
+   SRDP_OP_WRITE   = 0x02
+   SRDP_OP_CHANGE  = 0x03
 
    def __init__(self,
                 seq = 0,
+                frametype = 0,
                 opcode = 0,
                 device = 0,
                 register = 0,
                 position = 0,
                 length = 0,
                 crc16 = 0):
-      self.seq = 0
+      self.seq = seq
+      self.frametype = frametype
       self.opcode = opcode
       self.device = device
       self.register = register
@@ -59,6 +56,7 @@ class SrdpFrameHeader:
 
    def reset(self):
       self.seq = 0
+      self.frametype = 0
       self.opcode = 0
       self.device = 0
       self.register = 0
@@ -68,26 +66,31 @@ class SrdpFrameHeader:
 
 
    def computeCrc(self, data = None):
+      if data:
+         self.length = len(data)
+      else:
+         self.length = 0
+
       crc = crcmod.predefined.PredefinedCrc("crc-16")
+
       header = struct.pack("<HHHHH",
+                           ((self.frametype & 0x03) << 14) | ((self.opcode & 0x03) << 12) | (self.device & 0x0fff),
                            self.seq,
-                           self.opcode << 12 | self.device,
                            self.register,
                            self.position,
                            self.length)
       crc.update(header)
-      if data and len(data) > 0:
+
+      if self.length:
          crc.update(data)
-         self.length = len(data)
-      else:
-         self.length = 0
+
       self.crc16 = crc.crcValue
 
 
    def serialize(self):
       return struct.pack("<HHHHHH",
+                         ((self.frametype & 0x03) << 14) | ((self.opcode & 0x03) << 12) | (self.device & 0x0fff),
                          self.seq,
-                         self.opcode << 12 | self.device,
                          self.register,
                          self.position,
                          self.length,
@@ -96,25 +99,26 @@ class SrdpFrameHeader:
 
    def parse(self, data):
       t = struct.unpack("<HHHHHH", data[0:10])
-      self.seq = t[0]
-      self.opcode = t[1] >> 12
-      self.device = t[2] & 0xfff
-      self.register = t[3]
-      self.position = t[4]
-      self.length = t[5]
-      self.crc16 = t[6]
+      self.frametype = (t[0] >> 14) & 0x03
+      self.opcode = (t[0] >> 12) & 0x03
+      self.device = t[0] & 0xfff
+      self.seq = t[1]
+      self.register = t[2]
+      self.position = t[3]
+      self.length = t[4]
+      self.crc16 = t[5]
 
 
    def checkCrc(self, data = None):
       crc = crcmod.predefined.PredefinedCrc("crc-16")
       header = struct.pack("<HHHHH",
+                           ((self.frametype & 0x03) << 14) | ((self.opcode & 0x03) << 12) | (self.device & 0x0fff),
                            self.seq,
-                           self.opcode << 12 | self.device,
                            self.register,
                            self.position,
                            self.length)
       crc.update(header)
-      if data and len(data) > 0:
+      if self.length:
          crc.update(data)
       return self.crc16 == crc.crcValue
 

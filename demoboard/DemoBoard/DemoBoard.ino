@@ -42,22 +42,42 @@
 
 // Indices of SRDP Registers the Demoboard will expose
 //
-#define IDX_DEV         1
-#define IDX_REG_LED1    3
-#define IDX_REG_LED2    4
-#define IDX_REG_LED3    5
-#define IDX_REG_BTN1    6
-#define IDX_REG_BTN2    7
+#define IDX_DEV               1
+
+#define IDX_REG_ID            1
+#define IDX_REG_EDS           2
+
+#define IDX_REG_LED1          1024
+#define IDX_REG_LED2          1025
+#define IDX_REG_LED3          1026
+
+#define IDX_REG_BTN1          1027
+#define IDX_REG_BTN1_WATCH    1028
+
+#define IDX_REG_BTN2          1029
+#define IDX_REG_BTN2_WATCH    1030
+
+#define IDX_REG_POT1          1031
+#define IDX_REG_POT1_MAX      1032
+#define IDX_REG_POT1_WATCH    1033
+#define IDX_REG_POT1_URATE    1034
+
+#define IDX_REG_POT2          1035
+#define IDX_REG_POT2_MAX      1036
+#define IDX_REG_POT2_WATCH    1037
+#define IDX_REG_POT2_URATE    1038
+
 
 // URIs of the driver and device electronic datasheet (EDS)
 //
-#define URI_DRIVER_EDS "FIXME"
-#define URI_DEVICE_EDS "FIXME"
+#define URI_DRIVER_EDS "http://eds.device.tavendo.de/arduino/demoboard"
+#define URI_DEVICE_EDS "http://eds.device.tavendo.de/arduino/demoboard"
 
 // UUIDs of the driver and device
 //
-#define UUID_DRIVER "FIXME"
-#define UUID_DEVICE "FIXME"
+#define UUID_DRIVER {0x6B, 0x32, 0xA0, 0x7A, 0x7F, 0xC8, 0x47, 0xBB, 0x9D, 0x81, 0xF1, 0x41, 0x55, 0x0F, 0x60, 0x4F}
+#define UUID_DEVICE {0x93, 0xA0, 0x1C, 0x71, 0x03, 0xFC, 0x4D, 0x9E, 0x85, 0x2E, 0xBD, 0x2D, 0x8C, 0x82, 0x4D, 0xE8}
+
 
 
 // Wrappers for hardware components
@@ -75,7 +95,7 @@ srdp_channel_t channel;
 // Here we track which registers are watched by the host
 // When bit N is set, the host watched register N.
 //
-int watched = -1;
+int watched = 0;
 
 
 // Transport reader function used by the SRDP channel
@@ -107,7 +127,7 @@ int register_read(int dev, int reg, int pos, int len, uint8_t* data) {
          //
          case IDX_REG_BTN1:
          case IDX_REG_BTN2:
-            if (pos == 0 && len == 1) {
+            if (pos == 0 && (len == 1 || len == 0)) {
 
                if (reg == IDX_REG_BTN1) {
                   data[0] = btn1.getState();
@@ -115,6 +135,20 @@ int register_read(int dev, int reg, int pos, int len, uint8_t* data) {
                   data[0] = btn2.getState();
                }
                return 1;
+            } else {
+               return SRDP_ERR_INVALID_REG_POSLEN;
+            }
+
+         case IDX_REG_POT1:
+         case IDX_REG_POT2:
+            if (pos == 0 && (len == 2 || len == 0)) {
+
+               if (reg == IDX_REG_POT1) {
+                  *((uint16_t*) data) = pot1.getState();
+               } else {
+                  *((uint16_t*) data) = pot2.getState();
+               }
+               return 2;
             } else {
                return SRDP_ERR_INVALID_REG_POSLEN;
             }
@@ -168,8 +202,10 @@ int register_write(int dev, int reg, int pos, int len, const uint8_t* data) {
                return SRDP_ERR_INVALID_REG_POSLEN;
             }
 
-         case IDX_REG_BTN1:
+         case IDX_REG_BTN1:         
          case IDX_REG_BTN2:
+         case IDX_REG_POT1:
+         case IDX_REG_POT2:
             return SRDP_ERR_INVALID_REG_OP;
 
          default:
@@ -207,6 +243,11 @@ int register_watch(int dev, int reg, bool enable) {
 }
 
 
+void log_message(const char* msg, int level) {
+   Serial.println(msg);
+}
+
+
 // Arduino setup function executed once after reset
 //
 void setup() {
@@ -224,9 +265,9 @@ void setup() {
    channel.transport_write = transport_write;
    channel.register_read = register_read;
    channel.register_write = register_write;
-   channel.register_watch = register_watch;
    channel.uri_driver_eds = URI_DRIVER_EDS;
    channel.uri_device_eds = URI_DEVICE_EDS;
+   channel.log_message = log_message;
 
    // LED 1
    pinMode(PIN_LED1, OUTPUT);
@@ -253,46 +294,9 @@ void setup() {
 //
 void loop() {
 
-/*
-   if (Serial.available() >= channel.needed) {
+   while (Serial.available()) {
       srdp_loop(&channel);
    }
-*/
-/*
-   if (Serial.available() >= SRDP_FRAME_HEADER_LEN) {
-    
-      Serial.readBytes((char*) channel.in.header.buffer, SRDP_FRAME_HEADER_LEN);
-
-      if (channel.in.header.fields.len > 0) {
-         Serial.readBytes((char*) channel.in.data, channel.in.header.fields.len);
-      }
-
-      const char* err = 0;
-
-      switch (channel.in.header.fields.opdev >> 12) {
-
-         case OPCODE_READ_REGISTER:
-            //err = onReadRegister(&channel);
-            break;
-
-         case OPCODE_WRITE_REGISTER:
-            register_write(channel.in.header.fields.opdev & 0xfff,
-                           channel.in.header.fields.reg,
-                           channel.in.header.fields.pos,
-                           channel.in.header.fields.len,
-                           channel.in.data);
-            break;
-
-         default:
-            //log("unknown frame");
-            break;
-      }
-
-      if (err) {
-         Serial.println(err);
-      }
-   }
-*/
 
    // process buttons
    //
@@ -308,6 +312,11 @@ void loop() {
       uint8_t data = btn2.getState();
       srdp_register_change(&channel, IDX_DEV, IDX_REG_BTN2, 0, 1, &data);
    }
+
+
+   pot1.process();
+   pot2.process();
+
 
    // limit update frequency
    //

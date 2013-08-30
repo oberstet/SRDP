@@ -30,7 +30,7 @@ void Button::attach(int pin, int debounceInterval) {
 }
 
 bool Button::process() {
-   int val = digitalRead(_pin);
+   int val = digitalRead(_pin) ? 0 : 1;
    long now = millis();
 
    if (val != _lastState) {
