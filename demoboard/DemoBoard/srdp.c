@@ -196,7 +196,8 @@ void srdp_init_channel(srdp_channel_t* channel) {
 
 int srdp_register_change(srdp_channel_t* channel, int dev, int reg, int pos, int len, const uint8_t* data) {
    if (true) {
-      for (int i = 0; i < len; ++i) {
+      int i;
+      for (i = 0; i < len; ++i) {
          channel->out.data[i] = data[i];
       }
       send_frame(channel, SRDP_FT_REQ, SRDP_OP_CHANGE, dev, reg, pos, len);
@@ -237,7 +238,8 @@ void srdp_loop(srdp_channel_t* channel) {
                if (rest > 0) {
                   uint8_t* src = channel->in.header.buffer + total_frame_len;
                   uint8_t* dest = channel->in.header.buffer;
-                  for (int i = 0; i < rest; ++i) {
+                  int i;
+                  for (i = 0; i < rest; ++i) {
                      dest[i] = src[i];
                   }
                }

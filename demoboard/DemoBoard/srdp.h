@@ -16,6 +16,11 @@
 //
 //////////////////////////////////////////////////////////////////////////////#
 
+
+// This library compiles under both C89, C99 ("-std=c99" GCC option)
+// and C++. At least it should;)
+
+
 #ifndef SRDP_H
 #define SRDP_H
 
