@@ -18,8 +18,11 @@
 
 #include "srdp.h"
 
-#define LOG(MSG, LLEVEL) { if (channel->log_message) channel->log_message(channel->userdata, MSG, LLEVEL); }
+#ifdef __cplusplus
+extern "C" {
+#endif
 
+#define LOG(MSG, LLEVEL) { if (channel->log_message) channel->log_message(channel->userdata, MSG, LLEVEL); }
 
 
 void send_frame(srdp_channel_t* channel, int ft, int op, int dev, int reg, size_t pos, size_t len) {
@@ -250,3 +253,7 @@ void srdp_loop(srdp_channel_t* channel) {
       } while (rest > 0); // consume everything received
    }
 }
+
+#ifdef __cplusplus
+}
+#endif

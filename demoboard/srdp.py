@@ -116,21 +116,6 @@ class SrdpFrameHeader:
       self.crc16 = t[5]
 
 
-   def checkCrc(self, data = None):
-      crc = crcmod.predefined.PredefinedCrc("crc-16")
-      header = struct.pack("<HHHHH",
-                           ((self.frametype & 0x03) << 14) | ((self.opcode & 0x03) << 12) | (self.device & 0x0fff),
-                           self.seq,
-                           self.register,
-                           self.position,
-                           self.length)
-      crc.update(header)
-      if self.length:
-         crc.update(data)
-      return self.crc16 == crc.crcValue
-
-
-
 class SrdpProtocol(Protocol):
 
    def __init__(self):
@@ -219,6 +204,9 @@ class SrdpProtocol(Protocol):
             print binascii.hexlify(self._srdpFrameData)
 
       ## FIXME: check frame CRC
+      crc16 = self._srdpFrameHeader.computeCrc(self._srdpFrameData)
+      if crc16 != self._srdpFrameHeader.crc16:
+         print "CRC Error: computed = %s, received = %s" % (binascii.hexlify(struct.pack("<H", crc16)), binascii.hexlify(struct.pack("<H", self._srdpFrameHeader.crc16)))
 
       self._processFrame(self._srdpFrameHeader, self._srdpFrameData)
 

@@ -19,6 +19,9 @@
 #ifndef SRDP_H
 #define SRDP_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // SRDP frame types
 //
@@ -163,5 +166,8 @@ int srdp_register_change(srdp_channel_t* channel, int dev, int reg, int pos, int
 //
 void srdp_loop(srdp_channel_t* channel);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif // SRDP_H
