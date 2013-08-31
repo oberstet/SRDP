@@ -55,7 +55,7 @@ import binascii
 class DemoBoardHostProtocol(SrdpHostProtocol):
 
    def __init__(self):
-      SrdpHostProtocol.__init__(self)
+      SrdpHostProtocol.__init__(self, debug = True)
       self._ledToggle = False
 
    def toggleLed(self):
@@ -75,12 +75,14 @@ class DemoBoardHostProtocol(SrdpHostProtocol):
 
    def readAnalog(self):
       #self.readRegister(1, 1031)
-      self.readRegister(1, 1) # UUID
+      #self.readRegister(1, 1) # UUID
       #self.readRegister(1, 2) # EDS
+      self.readRegister(0, 1024) # free RAM
 
    def doTest(self):
       #self.toggleLed()
       #self.readButton()
+      self.readRegister(0, 1024) # free RAM
       #self.readAnalog()
       reactor.callLater(1, self.doTest)
 
@@ -96,8 +98,9 @@ class DemoBoardHostProtocol(SrdpHostProtocol):
       self.writeRegister(1, 1030, "\x01")
       self.writeRegister(1, 1033, "\x01")
       self.writeRegister(1, 1037, "\x01")
+      #self.readRegister(0, 1024)
       #self.writeRegister(1, 1032, struct.pack("<H", 255))
-      #reactor.callLater(1, self.doTest)
+      reactor.callLater(3, self.doTest)
       #reactor.callLater(3, self.doReadStats)
 
    def connectionMade(self):

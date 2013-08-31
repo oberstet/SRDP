@@ -46,6 +46,12 @@
 //
 #define IDX_DEV               1
 
+// Custom registers for driver (aka "device 0")
+//
+#define IDX_REG_FREE_RAM      1024
+
+// Registers of device 1 (our demoboard hardware)
+//
 #define IDX_REG_ID            1
 #define IDX_REG_EDS           2
 
@@ -86,6 +92,16 @@ static const uint8_t UUID_DEVICE[] = {0x93, 0xA0, 0x1C, 0x71, 0x03, 0xFC, 0x4D, 
 SmoothAnalogInput pot1, pot2;
 Button btn1, btn2;
 RgbLed led3;
+
+
+// Little function that returns free ram on Arduino.
+// From here: http://jeelabs.org/2011/05/22/atmega-memory-use/
+//
+int freeRam () {
+   extern int __heap_start, *__brkval; 
+   int v; 
+   return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
+}
 
 
 // SRDP channel to communicate with host.
@@ -189,7 +205,7 @@ int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* 
          case IDX_REG_POT2_WATCH:
          case IDX_REG_BTN1_WATCH:
          case IDX_REG_BTN2_WATCH:
-            if (pos == 0 && len == 1) {
+            if (pos == 0 && (len == 1 || len == 0)) {
                switch (reg) {
                   case IDX_REG_POT1_WATCH:
                      *((uint8_t*) data) = pot1.isWatched();
@@ -216,7 +232,7 @@ int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* 
          //
          case IDX_REG_POT1_MAX:
          case IDX_REG_POT2_MAX:
-            if (pos == 0 && len == 2) {
+            if (pos == 0 && (len == 2 || len == 0)) {
                switch (reg) {
                   case IDX_REG_POT1_MAX:
                      *((uint16_t*) data) = pot1.getMax();
@@ -237,7 +253,7 @@ int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* 
          //
          case IDX_REG_POT1_URATE:
          case IDX_REG_POT2_URATE:
-            if (pos == 0 && len == 2) {
+            if (pos == 0 && (len == 2 || len == 0)) {
                switch (reg) {
                   case IDX_REG_POT1_URATE:
                      *((uint16_t*) data) = pot1.getUpdateRate();
@@ -262,6 +278,22 @@ int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* 
          default:
             return SRDP_ERR_NO_SUCH_REGISTER;
       }
+   } else if (dev == 0) {
+
+      // custom registers for driver (aka "device 0")
+      //
+      switch (reg) {
+         case IDX_REG_FREE_RAM:
+            if (pos == 0 && (len == 4 || len == 0)) {
+               *((uint32_t*) data) = freeRam();
+               return 4;
+            } else {
+               return SRDP_ERR_INVALID_REG_POSLEN;
+            }         
+         default:
+            return SRDP_ERR_NO_SUCH_REGISTER;
+      }
+
    } else {
       return SRDP_ERR_NO_SUCH_DEVICE;
    }
