@@ -24,6 +24,7 @@
 #ifndef SRDP_H
 #define SRDP_H
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -84,11 +85,13 @@ typedef int (*srdp_register_read) (void* userdata, int dev, int reg, int pos, in
 typedef int (*srdp_register_write) (void* userdata, int dev, int reg, int pos, int len, const uint8_t* data);
 
 
-// Optional callback for logging purposes.
-//
-typedef void (*srdp_log_message) (void* userdata, const char* msg, int level);
+#ifdef SRDP_DUMMY
 
+//typedef void* srdp_frame_header_t;
+//typedef void* srdp_frame_t;
+typedef char srdp_channel_t;
 
+#else // SRDP_DUMMY
 
 // SRDP frame header
 //
@@ -122,7 +125,6 @@ typedef struct {
    srdp_transport_read transport_read;
    srdp_register_write register_write;
    srdp_register_read register_read;
-   srdp_log_message log_message;
 
    // arbitrary userdata forwarded to each callback
    //
@@ -161,20 +163,33 @@ typedef struct {
 
 } srdp_channel_t;
 
+#endif // SRDP_DUMMY
+
 
 // Initialize SRDP channel.
 //
-void srdp_init_channel(srdp_channel_t* channel);
+void srdp_init_channel(srdp_channel_t* channel,
+                       srdp_transport_write transport_write,
+                       srdp_transport_read transport_read,
+                       srdp_register_write register_write,
+                       srdp_register_read register_read,
+                       void* userdata);
 
 
 // Called by driver when to transmit a register change (ie a sensor value change).
 //
-int srdp_register_change(srdp_channel_t* channel, int dev, int reg, int pos, int len, const uint8_t* data);
+int srdp_register_change(srdp_channel_t* channel,
+                         int dev,
+                         int reg,
+                         int pos,
+                         int len,
+                         const uint8_t* data);
 
 
 // Called by driver to let SRDP processing happen.
 //
 void srdp_loop(srdp_channel_t* channel);
+
 
 #ifdef __cplusplus
 }

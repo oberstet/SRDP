@@ -26,6 +26,8 @@
 #include "Button.h"
 #include "RgbLed.h"
 
+//#define SRDP_DUMMY
+//#define SRDP_CRC16_BIG_AND_FAST
 #include "srdp.h" // SRDP library
 
 
@@ -441,12 +443,12 @@ void setup() {
 
    // setup SRDP channel over serial
    //
-   srdp_init_channel(&channel);
-   channel.transport_read = transport_read;
-   channel.transport_write = transport_write;
-   channel.register_read = register_read;
-   channel.register_write = register_write;
-   //channel.log_message = log_message;
+   srdp_init_channel(&channel,
+                     transport_write,
+                     transport_read,
+                     register_write,
+                     register_read,
+                     (void*) 0);
 
    // LED 1
    pinMode(PIN_LED1, OUTPUT);
