@@ -42,6 +42,10 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
+//#define SRDP_CRC16_BIG_AND_FAST
+
+#ifdef SRDP_CRC16_BIG_AND_FAST
+
 static const uint16_t crc_table[256] = {
    0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50a5, 0x60c6, 0x70e7,
    0x8108, 0x9129, 0xa14a, 0xb16b, 0xc18c, 0xd1ad, 0xe1ce, 0xf1ef,
@@ -88,6 +92,29 @@ uint16_t crc_calc (const uint8_t *data, size_t len)
    return crc;
 }
 
+#else // SRDP_CRC16_BIG_AND_FAST
+
+static const uint16_t crc_table[16] = {
+   0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50a5, 0x60c6, 0x70e7,
+   0x8108, 0x9129, 0xa14a, 0xb16b, 0xc18c, 0xd1ad, 0xe1ce, 0xf1ef
+};
+
+uint16_t crc_calc(const uint8_t *data, size_t len)
+{
+   uint16_t crc = 0;
+
+   if (len) do {
+      crc ^= (uint16_t) *data++ << 8;
+      crc = (crc << 4) ^ crc_table[(crc >> 12) & 15];
+      crc = (crc << 4) ^ crc_table[(crc >> 12) & 15];
+   } while (--len);
+
+   return crc;
+}
+
+#endif // SRDP_CRC16_BIG_AND_FAST
+
+
 
 void send_frame(srdp_channel_t* channel, int ft, int op, int dev, int reg, size_t pos, size_t len) {
 
@@ -126,7 +153,10 @@ void send_frame(srdp_channel_t* channel, int ft, int op, int dev, int reg, size_
    // user supplied callback since that callback could map to sending 1 UDP datagram.
    // and we don't want to split up a SRDP frame between different transport datagrams.
    //
-   channel->transport_write(channel->userdata, channel->out.header.buffer, SRDP_FRAME_HEADER_LEN + len);
+   int total = SRDP_FRAME_HEADER_LEN + len;
+   channel->transport_write(channel->userdata, channel->out.header.buffer, total);
+   channel->_sent_octets += total;
+   channel->_sent_frames += 1;
 }
 
 
@@ -149,6 +179,19 @@ int driver_register_read (void* userdata, int dev, int reg, int pos, int len, ui
                *((uint32_t*) (data + 4)) = channel->_recv_reg_change_ack;
                *((uint32_t*) (data + 8)) = channel->_recv_reg_change_err;
                return 12;
+            } else {
+               return SRDP_ERR_INVALID_REG_POSLEN;
+            }
+
+         // Stats: QQLL - Octets Received, Octets Sent, Frames Received, Frames Sent
+         //
+         case 5:
+            if (pos == 0 && (len == 24 || len == 0)) {
+               *((uint64_t*) (data + 0)) = channel->_recv_octets;
+               *((uint64_t*) (data + 8)) = channel->_sent_octets;
+               *((uint32_t*) (data + 16)) = channel->_recv_frames;
+               *((uint32_t*) (data + 20)) = channel->_sent_frames;
+               return 24;
             } else {
                return SRDP_ERR_INVALID_REG_POSLEN;
             }
@@ -263,6 +306,11 @@ void srdp_init_channel(srdp_channel_t* channel) {
    channel->_sent_reg_change_req = 0;
    channel->_recv_reg_change_ack = 0;
    channel->_recv_reg_change_err = 0;
+
+   channel->_recv_octets = 0;
+   channel->_sent_octets = 0;
+   channel->_recv_frames = 0;
+   channel->_sent_frames = 0;
 }
 
 
@@ -286,6 +334,7 @@ void srdp_loop(srdp_channel_t* channel) {
 
    if (got > 0) {
       channel->_bytes_received += got;
+      channel->_recv_octets += got;
 
       do {
 
@@ -301,6 +350,7 @@ void srdp_loop(srdp_channel_t* channel) {
 
                // complete frame received
                //
+               channel->_recv_frames += 1;
                process_incoming_frame(channel);
 
                // if there is a rest left (octets for a subsequent frame), move that

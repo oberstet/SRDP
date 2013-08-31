@@ -154,6 +154,11 @@ typedef struct {
    //
    uint32_t _recv_reg_change_err;
 
+   uint64_t _sent_octets;
+   uint64_t _recv_octets;
+   uint32_t _sent_frames;
+   uint32_t _recv_frames;
+
 } srdp_channel_t;
 
 
