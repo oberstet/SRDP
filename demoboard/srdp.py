@@ -78,14 +78,15 @@ class SrdpFrameHeader:
 
    def computeCrc(self, data = None):
 
-      crc = crcmod.predefined.PredefinedCrc("crc-16")
+      crc = crcmod.predefined.PredefinedCrc("xmodem")
 
-      header = struct.pack("<HHHHH",
+      header = struct.pack("<HHHHHH",
                            ((self.frametype & 0x03) << 14) | ((self.opcode & 0x03) << 12) | (self.device & 0x0fff),
                            self.seq,
                            self.register,
                            self.position,
-                           self.length)
+                           self.length,
+                           0)
       crc.update(header)
 
       if data:
@@ -204,9 +205,12 @@ class SrdpProtocol(Protocol):
             print binascii.hexlify(self._srdpFrameData)
 
       ## FIXME: check frame CRC
+      #crc16_received = self._srdpFrameHeader.crc16
       crc16 = self._srdpFrameHeader.computeCrc(self._srdpFrameData)
       if crc16 != self._srdpFrameHeader.crc16:
          print "CRC Error: computed = %s, received = %s" % (binascii.hexlify(struct.pack("<H", crc16)), binascii.hexlify(struct.pack("<H", self._srdpFrameHeader.crc16)))
+      else:
+         print "CRC OK!"
 
       self._processFrame(self._srdpFrameHeader, self._srdpFrameData)
 
@@ -274,6 +278,33 @@ class SrdpDriverProtocol(SrdpProtocol):
 
 
 if __name__ == '__main__':
+
+   # http://www.ross.net/crc/download/crc_v3.txt
+   #http://www.mcgougan.se/universal_crc/
+
+   # http://www.lammertbies.nl/comm/info/crc-calculation.html
+
+   # CRCs for test string "123456789":
+   #
+   # 1 byte checksum      221
+   # CRC-16               0xBB3D
+   # CRC-16 (Modbus)      0x4B37
+   # CRC-16 (Sick)        0x56A6
+   # CRC-CCITT (XModem)   0x31C3
+   # CRC-CCITT (0xFFFF)   0x29B1
+   # CRC-CCITT (0x1D0F)   0xE5CC
+   # CRC-CCITT (Kermit)   0x8921
+   # CRC-DNP              0x82EA
+   # CRC-32               0xCBF43926   
+
+   crc = crcmod.predefined.PredefinedCrc("xmodem")
+   #crc.update("123456789")
+   crc.update("1234")
+   crc.update("56789")
+   print crc.crcValue, binascii.hexlify(struct.pack(">H", crc.crcValue))
+   
+   import sys
+   sys.exit(0)
 
    ## Assume we (the adapter) have received a READ_REGISTER frame for
    ## device = 1, register = 2 ("/device/1/location/position").

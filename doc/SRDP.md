@@ -40,4 +40,33 @@ A Modbus master hardware connected to a small Linux device (e.g. RaspberryPi). A
  * [Blockwise transfers in CoAP](http://tools.ietf.org/html/draft-ietf-core-block-12)
  * [Datagram Transport Layer Security](http://en.wikipedia.org/wiki/Datagram_Transport_Layer_Security)
  * [The 6LoWPAN Format](http://www.mi.fu-berlin.de/inf/groups/ag-tech/teaching/2012-13_WS/L_19528_Embedded_Internet_and_the_Internet_of_Things/06.pdf?1358508475)
- * 
+
+# CRC
+
+SRDP uses CRC-16 with the following parameters (parameters like Xmodem):
+
+ 1. Poly: `0x1021`
+ 2. Initial value: `0x0000`
+ 3. No Reverse
+ 4. No XOR
+
+The check value for the ASCII byte string "123456789" (= 9 bytes) is `0x31C3`.
+
+CRC-16 is a whole family of CRCs, and there is considerable confusion and wrong implementations in the field. Please read:
+
+ * [Wikipedia on CRCs](http://en.wikipedia.org/wiki/Crc16)
+ * [C code generator](http://www.mcgougan.se/universal_crc/)
+ * [CRC16 online calculator](http://www.lammertbies.nl/comm/info/crc-calculation.html)
+ * [CRC16 confusion](http://web.archive.org/web/20071229021252/http://www.joegeluso.com/software/articles/ccitt.htm)
+
+For C, you can use above code generator to get working code. For Python, you can use [crcmod](https://pypi.python.org/pypi/crcmod):
+
+    import crcmod
+    crc = crcmod.predefined.PredefinedCrc("xmodem")
+    crc.update("123456789")
+    print "%0000x" % crc.crcValue
+
+With SRDP, the CRC is computed over the complete frame header and data with the CRC16 field set to 0. After computation of CRC, the value is inserted into the frame CRC field and the frame is transmitted.
+
+
+> Why isn't the CRC appended after frame data? Because having the CRC in the fixed portion of the frame header simplifies protocol parsing.
