@@ -207,12 +207,13 @@ int driver_register_read (void* userdata, int dev, int reg, int pos, int len, ui
          // Stats: QQLL - Octets Received, Octets Sent, Frames Received, Frames Sent
          //
          case 5:
-            if (pos == 0 && (len == 24 || len == 0)) {
-               *((uint64_t*) (data + 0)) = channel->_recv_octets;
-               *((uint64_t*) (data + 8)) = channel->_sent_octets;
-               *((uint32_t*) (data + 16)) = channel->_recv_frames;
-               *((uint32_t*) (data + 20)) = channel->_sent_frames;
-               return 24;
+            if (pos == 0 && (len == 32 || len == 0)) {
+               *((uint64_t*) (data + 0)) = channel->_loops;
+               *((uint64_t*) (data + 8)) = channel->_recv_octets;
+               *((uint64_t*) (data + 16)) = channel->_sent_octets;
+               *((uint32_t*) (data + 24)) = channel->_recv_frames;
+               *((uint32_t*) (data + 28)) = channel->_sent_frames;
+               return 32;
             } else {
                return SRDP_ERR_INVALID_REG_POSLEN;
             }
@@ -234,6 +235,8 @@ void process_incoming_frame (srdp_channel_t* channel) {
    int reg = channel->in.header.fields.reg;
    int pos = channel->in.header.fields.pos;
    int len = channel->in.header.fields.len;
+
+   channel->_seq_in = channel->in.header.fields.seq;
 
    int res = SRDP_ERR_NOT_IMPLEMENTED;
 
@@ -330,6 +333,7 @@ void srdp_init_channel(srdp_channel_t* channel,
    channel->_recv_reg_change_ack = 0;
    channel->_recv_reg_change_err = 0;
 
+   channel->_loops = 0;
    channel->_recv_octets = 0;
    channel->_sent_octets = 0;
    channel->_recv_frames = 0;
@@ -399,6 +403,8 @@ void srdp_loop(srdp_channel_t* channel) {
 
       } while (rest > 0); // consume everything received
    }
+
+   channel->_loops += 1;
 }
 
 #endif // SRDP_DUMMY

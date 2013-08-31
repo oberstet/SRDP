@@ -156,6 +156,9 @@ typedef struct {
    //
    uint32_t _recv_reg_change_err;
 
+   // wire level stats
+   //
+   uint64_t _loops;
    uint64_t _sent_octets;
    uint64_t _recv_octets;
    uint32_t _sent_frames;
