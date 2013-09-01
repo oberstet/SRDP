@@ -45,6 +45,17 @@
 #define PIN_BTN1    22
 #define PIN_BTN2    23
 
+// URIs of the driver and device electronic datasheet (EDS)
+//
+#define URI_DRIVER_EDS "http://eds.device.tavendo.de/arduino/demoboard"
+#define URI_DEVICE_EDS "http://eds.device.tavendo.de/arduino/demoboard"
+
+// UUIDs of the driver and device
+//
+static const uint8_t UUID_DRIVER[] = {0x6B, 0x32, 0xA0, 0x7A, 0x7F, 0xC8, 0x47, 0xBB, 0x9D, 0x81, 0xF1, 0x41, 0x55, 0x0F, 0x60, 0x4F};
+static const uint8_t UUID_DEVICE[] = {0x93, 0xA0, 0x1C, 0x71, 0x03, 0xFC, 0x4D, 0x9E, 0x85, 0x2E, 0xBD, 0x2D, 0x8C, 0x82, 0x4D, 0xE8};
+
+
 // Indices of SRDP Registers the Demoboard will expose
 //
 #define IDX_DEV               1
@@ -77,17 +88,6 @@
 #define IDX_REG_POT2_MAX      1036
 #define IDX_REG_POT2_WATCH    1037
 #define IDX_REG_POT2_URATE    1038
-
-
-// URIs of the driver and device electronic datasheet (EDS)
-//
-#define URI_DRIVER_EDS "http://eds.device.tavendo.de/arduino/demoboard"
-#define URI_DEVICE_EDS "http://eds.device.tavendo.de/arduino/demoboard"
-
-// UUIDs of the driver and device
-//
-static const uint8_t UUID_DRIVER[] = {0x6B, 0x32, 0xA0, 0x7A, 0x7F, 0xC8, 0x47, 0xBB, 0x9D, 0x81, 0xF1, 0x41, 0x55, 0x0F, 0x60, 0x4F};
-static const uint8_t UUID_DEVICE[] = {0x93, 0xA0, 0x1C, 0x71, 0x03, 0xFC, 0x4D, 0x9E, 0x85, 0x2E, 0xBD, 0x2D, 0x8C, 0x82, 0x4D, 0xE8};
 
 
 // Wrappers for hardware components

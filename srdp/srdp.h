@@ -50,12 +50,19 @@ extern "C" {
 #define SRDP_ERR_INVALID_REG_POSLEN    -4
 #define SRDP_ERR_INVALID_REG_OP        -5
 
-// SRDP limits
+// SRDP frame header length (fixed)
 //
-#define SRDP_FRAME_HEADER_LEN    12    // Fixed!
+#define SRDP_FRAME_HEADER_LEN      12
 
+// SDRP frame data maximum length (configurable)
+//
+// MUST BE < (2^16 - SRDP_FRAME_HEADER_LEN) for UDP and as low
+// as < (81 < SRDP_FRAME_HEADER_LEN) for transports such as 6LoWPAN
+// over IEEE 802.15.4 with AES-CCM-128 leaving only 81 octets for
+// the application layer.
+//
 #ifndef SRDP_FRAME_DATA_MAX_LEN
-#  define SRDP_FRAME_DATA_MAX_LEN  256 // MUST BE < 2^16 - SRDP_FRAME_HEADER_LEN
+#  define SRDP_FRAME_DATA_MAX_LEN  256
 #endif
 
 
@@ -63,37 +70,54 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 
-// signed integer type large enough to hold any size_t value (which are unsigned)
+// signed integer type large enough to hold any size_t value (which
+// are unsigned)
 typedef long ssize_t; 
 
 
 // Signature of transport reader function used by the SRDP channel.
+// (API level: public)
 //
-typedef ssize_t (*srdp_transport_read) (void* userdata, uint8_t* data, size_t len);
+typedef ssize_t (*srdp_transport_read) (void* userdata,
+                                        uint8_t* data,
+                                        size_t len);
 
-// Signature of transport writer function used by the SRDP channel-
+// Signature of transport writer function used by the SRDP channel.
+// (API level: public)
 //
-typedef ssize_t (*srdp_transport_write) (void* userdata, const uint8_t* data, size_t len);
+typedef ssize_t (*srdp_transport_write) (void* userdata,
+                                         const uint8_t* data,
+                                         size_t len);
 
 
-// Callback for register read handler fired when host requests to read a register-
+// Callback for register read handler fired when host requests to
+// read a register. (API level: public)
 //
-typedef int (*srdp_register_read) (void* userdata, int dev, int reg, int pos, int len, uint8_t* data);
+typedef int (*srdp_register_read) (void* userdata,
+                                   int dev,
+                                   int reg,
+                                   int pos,
+                                   int len,
+                                   uint8_t* data);
 
-// Callback for register write handler fired when host requests to write a register.
+// Callback for register write handler fired when host requests to
+// write a register. (API level: public)
 //
-typedef int (*srdp_register_write) (void* userdata, int dev, int reg, int pos, int len, const uint8_t* data);
+typedef int (*srdp_register_write) (void* userdata,
+                                    int dev,
+                                    int reg,
+                                    int pos,
+                                    int len,
+                                    const uint8_t* data);
 
 
 #ifdef SRDP_DUMMY
 
-//typedef void* srdp_frame_header_t;
-//typedef void* srdp_frame_t;
 typedef char srdp_channel_t;
 
 #else // SRDP_DUMMY
 
-// SRDP frame header
+// SRDP frame header (API level: private)
 //
 typedef union {
    uint8_t buffer[SRDP_FRAME_HEADER_LEN];
@@ -108,7 +132,7 @@ typedef union {
 } srdp_frame_header_t;
 
 
-// SRDP frame
+// SRDP frame (API level: private)
 //
 typedef struct {
    srdp_frame_header_t header;
@@ -116,9 +140,10 @@ typedef struct {
 } srdp_frame_t;
 
 
-// SRDP channel
+// SRDP channel (API level: opaque)
 //
 typedef struct {
+   
    // callbacks
    //
    srdp_transport_write transport_write;
@@ -144,15 +169,18 @@ typedef struct {
    //
    int _bytes_received;
 
-   // the number of "SRDP_FT_REQ / SRDP_OP_CHANGE" frames we sent to the host
+   // the number of "SRDP_FT_REQ / SRDP_OP_CHANGE" frames we
+   // sent to the host
    //
    uint32_t _sent_reg_change_req;
 
-   // the number of "SRDP_FT_ACK / SRDP_OP_CHANGE" frames we received from the host
+   // the number of "SRDP_FT_ACK / SRDP_OP_CHANGE" frames we
+   // received from the host
    //
    uint32_t _recv_reg_change_ack;
 
-   // the number of "SRDP_FT_ERR / SRDP_OP_CHANGE" frames we received from the host
+   // the number of "SRDP_FT_ERR / SRDP_OP_CHANGE" frames we
+   // received from the host
    //
    uint32_t _recv_reg_change_err;
 
@@ -169,7 +197,7 @@ typedef struct {
 #endif // SRDP_DUMMY
 
 
-// Initialize SRDP channel.
+// Initialize SRDP channel. (API level: public)
 //
 void srdp_init_channel(srdp_channel_t* channel,
                        srdp_transport_write transport_write,
@@ -179,7 +207,8 @@ void srdp_init_channel(srdp_channel_t* channel,
                        void* userdata);
 
 
-// Called by driver when to transmit a register change (ie a sensor value change).
+// Called by driver when to transmit a register
+// change (ie a sensor value change).  (API level: public)
 //
 int srdp_register_change(srdp_channel_t* channel,
                          int dev,
@@ -188,7 +217,7 @@ int srdp_register_change(srdp_channel_t* channel,
                          int len);
 
 
-// Called by driver to let SRDP processing happen.
+// Called by driver to let SRDP processing happen.  (API level: public)
 //
 void srdp_loop(srdp_channel_t* channel);
 
