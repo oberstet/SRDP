@@ -92,8 +92,8 @@ static const uint8_t UUID_DEVICE[] = {0x93, 0xA0, 0x1C, 0x71, 0x03, 0xFC, 0x4D, 
 #define IDX_REG_POT2_WATCH    1037
 #define IDX_REG_POT2_URATE    1038
 
-#define IDX_REG_CUSTOM_ID     1039
-
+#define IDX_REG_USERSTORE     1039
+#define SIZ_REG_USERSTORE     64
 
 // Wrappers for hardware components
 //
@@ -231,11 +231,11 @@ int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* 
 
          // persistent register
          //
-         case IDX_REG_CUSTOM_ID:
+         case IDX_REG_USERSTORE:
             if (len == 0) {
-               len = 16 - pos;
+               len = SIZ_REG_USERSTORE - pos;
             }
-            if (pos + len <= 16) {
+            if (pos + len <= SIZ_REG_USERSTORE) {
                readEEPROM(0 + pos, data, len);
                return len;
             } else {
@@ -332,8 +332,8 @@ int register_write(void* userdata, int dev, int reg, int pos, int len, const uin
 
          // persistent register
          //
-         case IDX_REG_CUSTOM_ID:
-            if (pos + len <= 16) {
+         case IDX_REG_USERSTORE:
+            if (pos + len <= SIZ_REG_USERSTORE) {
                writeEEPROM(0 + pos, data, len);
                return len;
             } else {

@@ -103,9 +103,10 @@ class DemoBoardHostProtocol(SrdpHostProtocol):
       #self.writeRegister(1, 1037, "\x01")
 
       #self.writeRegister(1, 1039, "\x66"*16)
-      #self.readRegister(1, 1039, 0, 16)
-      #self.readRegister(1, 1031)
+      self.writeRegister(1, 1039, "hello arduino !!!!")
       self.readRegister(1, 1039)
+      #self.readRegister(1, 1031)
+      #self.readRegister(1, 1039)
       #self.readRegister(0, 1024) # free RAM
       #self.readRegister(0, 4)
       #self.readRegister(0, 5)
