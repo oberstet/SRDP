@@ -1,0 +1,63 @@
+{
+   "uri": "http://eds.tavendo.com/device/combocontrol",
+
+   "desc": "'Combo Control' is a human interaction device combining a button, a linear control (e.g. a potentiometer) with a single, digital notification output (e.g. a LED).",
+
+   "registers": [
+      {
+         "index": 1,
+         "path": "/system/id",
+         "access": "read",
+         "type": "uint8",
+         "count": 16,
+         "desc": "The globally unique 128-Bit UUID of the device."
+      },
+
+      {
+         "index": 2,
+         "path": "/system/eds",
+         "access": "read",
+         "type": "string",
+         "count": 1,
+         "desc": "The URI of the electronic datasheet (EDS) of the device."
+      },
+
+      {
+         "index": 1024,
+         "path": "/light",
+         "access": "write",
+         "type": "uint8",
+         "count": 1,
+         "desc": "LED (monochrome). Any non-zero value turns the LED on."
+      },
+
+      {
+         "index": 1025,
+         "path": "/button",
+         "access": "read",
+         "type": [
+            {
+               "field": "time",
+               "type": "uint32",
+               "desc": "Sample time of `state` in microseconds since MCU startup. Will overflow in around 70 minutes."
+            },
+            {
+               "field": "state",
+               "type": "uint8",
+               "desc": "Current button state: 0 = pressed, 1 = unpressed."
+            }
+         ],
+         "count": 1,
+         "desc": "Button."
+      },
+
+      {
+         "index": 1026,
+         "path": "/button#watch",
+         "access": "readwrite",
+         "type": "uint8",
+         "count": 1,
+         "desc": "Enable watching of button state changes. Iff enabled (any non-zero value will do), generate a register change event whenever the button state changes."
+      }
+   ]
+}
