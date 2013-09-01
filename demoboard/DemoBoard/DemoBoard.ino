@@ -139,139 +139,77 @@ ssize_t transport_write (void* userdata, const uint8_t* data, size_t len) {
 // Register read handler called when host requests to read a register
 //
 int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* data) {
+
    if (dev == IDX_DEV) {
-      int l;
 
       switch (reg) {
 
          // Device UUID
          //
          case IDX_REG_ID:
-            l = sizeof(UUID_DEVICE);
-            if (pos == 0 && (len == l || len == 0)) {
-               memcpy(data, UUID_DEVICE, l);
-               return l;
-            } else {
-               return SRDP_ERR_INVALID_REG_POSLEN;
-            }
+            memcpy(data, UUID_DEVICE, sizeof(UUID_DEVICE));
+            return sizeof(UUID_DEVICE);
 
          // Device EDS
          //
          case IDX_REG_EDS:
-            l = sizeof(URI_DEVICE_EDS);
-            if (pos == 0 && (len == l || len == 0)) {
-               strncpy((char*) data, URI_DEVICE_EDS, l);
-               return l;
-            } else {
-               return SRDP_ERR_INVALID_REG_POSLEN;
-            }
+            strncpy((char*) data, URI_DEVICE_EDS, sizeof(URI_DEVICE_EDS));
+            return sizeof(URI_DEVICE_EDS);
 
          // Buttons
          //
          case IDX_REG_BTN1:
+            *((uint32_t*) (data + 0)) = btn1.getTime();
+            *((uint8_t*) (data + 4)) = btn1.getState();
+            return 5;
          case IDX_REG_BTN2:
-            if (pos == 0 && (len == 5 || len == 0)) {
-
-               if (reg == IDX_REG_BTN1) {
-                  *((uint32_t*) (data + 0)) = btn1.getTime();
-                  *((uint8_t*) (data + 4)) = btn1.getState();
-               } else {
-                  *((uint32_t*) (data + 0)) = btn2.getTime();
-                  *((uint8_t*) (data + 4)) = btn2.getState();
-               }
-               return 5;
-            } else {
-               return SRDP_ERR_INVALID_REG_POSLEN;
-            }
+            *((uint32_t*) (data + 0)) = btn2.getTime();
+            *((uint8_t*) (data + 4)) = btn2.getState();
+            return 5;
 
          // Potis
          //
          case IDX_REG_POT1:
+            *((uint32_t*) (data + 0)) = pot1.getTime();
+            *((uint16_t*) (data + 4)) = pot1.getState();
+            return 6;
          case IDX_REG_POT2:
-            if (pos == 0 && (len == 6 || len == 0)) {
-
-               if (reg == IDX_REG_POT1) {
-                  *((uint32_t*) (data + 0)) = pot1.getTime();
-                  *((uint16_t*) (data + 4)) = pot1.getState();
-               } else {
-                  *((uint32_t*) (data + 0)) = pot2.getTime();
-                  *((uint16_t*) (data + 4)) = pot2.getState();
-               }
-               return 6;
-            } else {
-               return SRDP_ERR_INVALID_REG_POSLEN;
-            }
+            *((uint32_t*) (data + 0)) = pot2.getTime();
+            *((uint16_t*) (data + 4)) = pot2.getState();
+            return 6;
 
          // Poti 1/2, Button 1/2 : #watch
          //
          case IDX_REG_POT1_WATCH:
+            *((uint8_t*) data) = pot1.isWatched();
+            return 1;
          case IDX_REG_POT2_WATCH:
+            *((uint8_t*) data) = pot2.isWatched();
+            return 1;
          case IDX_REG_BTN1_WATCH:
+            *((uint8_t*) data) = btn1.isWatched();
+            return 1;
          case IDX_REG_BTN2_WATCH:
-            if (pos == 0 && (len == 1 || len == 0)) {
-               switch (reg) {
-                  case IDX_REG_POT1_WATCH:
-                     *((uint8_t*) data) = pot1.isWatched();
-                     break;
-                  case IDX_REG_POT2_WATCH:
-                     *((uint8_t*) data) = pot2.isWatched();
-                     break;
-                  case IDX_REG_BTN1_WATCH:
-                     *((uint8_t*) data) = btn1.isWatched();
-                     break;
-                  case IDX_REG_BTN2_WATCH:
-                     *((uint8_t*) data) = btn2.isWatched();
-                     break;
-                  default:
-                     // should not arrive here
-                     break;
-               }
-               return 1;
-            } else {
-               return SRDP_ERR_INVALID_REG_POSLEN;
-            }         
+            *((uint8_t*) data) = btn2.isWatched();
+            return 1;
 
          // Poti 1/2 : #max
          //
          case IDX_REG_POT1_MAX:
+            *((uint16_t*) data) = pot1.getMax();
+            return 2;
          case IDX_REG_POT2_MAX:
-            if (pos == 0 && (len == 2 || len == 0)) {
-               switch (reg) {
-                  case IDX_REG_POT1_MAX:
-                     *((uint16_t*) data) = pot1.getMax();
-                     break;
-                  case IDX_REG_POT2_MAX:
-                     *((uint16_t*) data) = pot2.getMax();
-                     break;
-                  default:
-                     // should not arrive here
-                     break;
-               }
-               return 2;
-            } else {
-               return SRDP_ERR_INVALID_REG_POSLEN;
-            }         
+            *((uint16_t*) data) = pot2.getMax();
+            return 2;
 
          // Poti 1/2 : #updateRate
          //
          case IDX_REG_POT1_URATE:
+            *((uint16_t*) data) = pot1.getUpdateRate();
+            return 2;
          case IDX_REG_POT2_URATE:
-            if (pos == 0 && (len == 2 || len == 0)) {
-               switch (reg) {
-                  case IDX_REG_POT1_URATE:
-                     *((uint16_t*) data) = pot1.getUpdateRate();
-                     break;
-                  case IDX_REG_POT2_URATE:
-                     *((uint16_t*) data) = pot2.getUpdateRate();
-                     break;
-                  default:
-                     // should not arrive here
-                     break;
-               }
-               return 2;
-            } else {
-               return SRDP_ERR_INVALID_REG_POSLEN;
-            }         
+            *((uint16_t*) data) = pot2.getUpdateRate();
+            return 2;
 
          case IDX_REG_LED1:
          case IDX_REG_LED2:
@@ -286,13 +224,13 @@ int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* 
       // custom registers for driver (aka "device 0")
       //
       switch (reg) {
+
+         // current free memory
+         //
          case IDX_REG_FREE_RAM:
-            if (pos == 0 && (len == 4 || len == 0)) {
-               *((uint32_t*) data) = freeRam();
-               return 4;
-            } else {
-               return SRDP_ERR_INVALID_REG_POSLEN;
-            }         
+            *((uint32_t*) data) = freeRam();
+            return 4;
+
          default:
             return SRDP_ERR_NO_SUCH_REGISTER;
       }
@@ -308,109 +246,58 @@ int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* 
 int register_write(void* userdata, int dev, int reg, int pos, int len, const uint8_t* data) {
 
    if (dev == IDX_DEV) {
+
       switch (reg) {
          
          // LED 1 (red)
          // LED 2 (green)
          //
          case IDX_REG_LED1:
-         case IDX_REG_LED2:
-            if (pos == 0 && len == 1) {
+            digitalWrite(IDX_REG_LED1, data[0] ? HIGH : LOW);
+            return 1;
 
-               int pin = reg == IDX_REG_LED1 ? PIN_LED1 : PIN_LED2;
-               if (data[0]) {
-                  digitalWrite(pin, HIGH);
-               } else {
-                  digitalWrite(pin, LOW);
-               }
-               return len;
-            } else {
-               return SRDP_ERR_INVALID_REG_POSLEN;
-            }
+         case IDX_REG_LED2:
+            digitalWrite(IDX_REG_LED2, data[0] ? HIGH : LOW);
+            return 1;
 
          // LED 3 (RGB)
          //
          case IDX_REG_LED3:
-            if (pos == 0 && len == 3) {
-
-               led3.write(data[0], data[1], data[2]);
-               return len;
-            } else {
-               return SRDP_ERR_INVALID_REG_POSLEN;
-            }
+            led3.write(data[0], data[1], data[2]);
+            return 3;
 
          // Poti 1/2, Button 1/2 : #watch
          //
          case IDX_REG_POT1_WATCH:
+            pot1.setWatched(data[0] != 0);
+            return 1;
          case IDX_REG_POT2_WATCH:
+            pot2.setWatched(data[0] != 0);
+            return 1;
          case IDX_REG_BTN1_WATCH:
+            btn1.setWatched(data[0] != 0);
+            return 1;
          case IDX_REG_BTN2_WATCH:
-            if (pos == 0 && len == 1) {
-               switch (reg) {
-                  case IDX_REG_POT1_WATCH:
-                     pot1.setWatched(data[0] != 0);
-                     break;
-                  case IDX_REG_POT2_WATCH:
-                     pot2.setWatched(data[0] != 0);
-                     break;
-                  case IDX_REG_BTN1_WATCH:
-                     btn1.setWatched(data[0] != 0);
-                     break;
-                  case IDX_REG_BTN2_WATCH:
-                     btn2.setWatched(data[0] != 0);
-                     break;
-                  default:
-                     // should not arrive here
-                     break;
-               }
-               return 1;
-            } else {
-               return SRDP_ERR_INVALID_REG_POSLEN;
-            }         
+            btn2.setWatched(data[0] != 0);
+            return 1;
 
          // Poti 1/2 : #max
          //
          case IDX_REG_POT1_MAX:
+            pot1.scale(0, *((const uint16_t*) data));
+            return 2;
          case IDX_REG_POT2_MAX:
-            if (pos == 0 && len == 2) {
-               uint16_t max = *((const uint16_t*) data);
-               switch (reg) {
-                  case IDX_REG_POT1_MAX:
-                     pot1.scale(0, max);
-                     break;
-                  case IDX_REG_POT2_MAX:
-                     pot2.scale(0, max);
-                     break;
-                  default:
-                     // should not arrive here
-                     break;
-               }
-               return 2;
-            } else {
-               return SRDP_ERR_INVALID_REG_POSLEN;
-            }         
+            pot2.scale(0, *((const uint16_t*) data));
+            return 2;
 
          // Poti 1/2 : #updateRate
          //
          case IDX_REG_POT1_URATE:
+            pot1.setUpdateRate(*((const uint16_t*) data));
+            return 2;
          case IDX_REG_POT2_URATE:
-            if (pos == 0 && len == 2) {
-               uint16_t urate = *((const uint16_t*) data);
-               switch (reg) {
-                  case IDX_REG_POT1_URATE:
-                     pot1.setUpdateRate(urate);
-                     break;
-                  case IDX_REG_POT2_URATE:
-                     pot2.setUpdateRate(urate);
-                     break;
-                  default:
-                     // should not arrive here
-                     break;
-               }
-               return 2;
-            } else {
-               return SRDP_ERR_INVALID_REG_POSLEN;
-            }         
+            pot2.setUpdateRate(*((const uint16_t*) data));
+            return 2;
 
          case IDX_REG_BTN1:         
          case IDX_REG_BTN2:
@@ -424,11 +311,6 @@ int register_write(void* userdata, int dev, int reg, int pos, int len, const uin
    } else {
       return SRDP_ERR_NO_SUCH_DEVICE;
    }
-}
-
-
-void log_message(void* userdata, const char* msg, int level) {
-   Serial.println(msg);
 }
 
 
