@@ -58,6 +58,53 @@
          "type": "uint8",
          "count": 1,
          "desc": "Enable watching of button state changes. Iff enabled (any non-zero value will do), generate a register change event whenever the button state changes."
+      },
+
+      {
+         "index": 1027,
+         "path": "/slider",
+         "access": "read",
+         "type": [
+            {
+               "field": "time",
+               "type": "uint32",
+               "desc": "Sample time of `state` in microseconds since MCU startup. Will overflow in around 70 minutes."
+            },
+            {
+               "field": "value",
+               "type": "uint16",
+               "desc": "Current slider value: [0, max] where max is set via a configuration register."
+            }
+         ],
+         "count": 1,
+         "desc": "Slider."
+      },
+
+      {
+         "index": 1028,
+         "path": "/slider#max",
+         "access": "readwrite",
+         "type": "uint16",
+         "count": 1,
+         "desc": "Maximum value for slider range."
+      },
+
+      {
+         "index": 1029,
+         "path": "/slider#watch",
+         "access": "readwrite",
+         "type": "uint8",
+         "count": 1,
+         "desc": "Enable watching of slider value changes. Iff enabled (any non-zero value will do), generate a register change event whenever the slider value changes."
+      },
+
+      {
+         "index": 1030,
+         "path": "/slider#urate",
+         "access": "readwrite",
+         "type": "float",
+         "count": 1,
+         "desc": "Setting a non-zero value T will generate register change events every T seconds regardless of whether the slider value has changed or not."
       }
    ]
 }
