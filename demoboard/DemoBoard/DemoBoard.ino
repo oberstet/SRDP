@@ -31,7 +31,7 @@
 
 //#define SRDP_DUMMY
 //#define SRDP_CRC16_BIG_AND_FAST
-//#define SRDP_FRAME_DATA_MAX_LEN 256
+//#define SRDP_FRAME_DATA_MAX_LEN 512
 #include "srdp.h" // SRDP library
 
 
@@ -93,7 +93,7 @@ static const uint8_t UUID_DEVICE[] = {0x93, 0xA0, 0x1C, 0x71, 0x03, 0xFC, 0x4D, 
 #define IDX_REG_POT2_URATE    1038
 
 #define IDX_REG_USERSTORE     1039
-#define SIZ_REG_USERSTORE     64
+#define SIZ_REG_USERSTORE     64    // MUST BE <= SRDP_FRAME_DATA_MAX_LEN
 
 // Wrappers for hardware components
 //
@@ -229,13 +229,14 @@ int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* 
             *((uint16_t*) data) = pot2.getUpdateRate();
             return 2;
 
-         // persistent register
+         // persistent register (type "B*" - a vector of uint8s)
          //
          case IDX_REG_USERSTORE:
             if (len == 0) {
-               len = SIZ_REG_USERSTORE - pos;
+               *((uint16_t*) data) = SIZ_REG_USERSTORE;
+               return 2;
             }
-            if (pos + len <= SIZ_REG_USERSTORE) {
+            else if (pos + len <= SIZ_REG_USERSTORE) {
                readEEPROM(0 + pos, data, len);
                return len;
             } else {
