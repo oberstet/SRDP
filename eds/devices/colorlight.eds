@@ -30,21 +30,21 @@
             {
                "field": "red",
                "type": "uint8",
-               "desc": "Red color component value."
+               "desc": "Red color component value. Default is 0."
             },
             {
                "field": "green",
                "type": "uint8",
-               "desc": "Green color component value."
+               "desc": "Green color component value. Default is 0."
             },
             {
                "field": "blue",
                "type": "uint8",
-               "desc": "Blue color component value."
+               "desc": "Blue color component value. Default is 0."
             }
          ],
          "count": 1,
-         "desc": "Light color (RGB color space)."
+         "desc": "Light color (RGB color space). Default is black."
       }
    ]
 }

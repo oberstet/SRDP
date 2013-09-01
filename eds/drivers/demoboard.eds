@@ -46,7 +46,7 @@
          "access": "readwrite",
          "type": "uint8",
          "count": 64,
-         "desc": "Arbitrary user data persistently stored in device EEPROM."
+         "desc": "Arbitrary user data persistently stored in device EEPROM. The default content is undefined."
       }
    ]
 }
