@@ -20,6 +20,9 @@
 // Arduino "Demoboard" SRDP Driver.
 //
 
+#include <Arduino.h>
+#include <EEPROM.h>
+
 #include <string.h>
 
 #include "SmoothAnalogInput.h"
@@ -89,6 +92,8 @@ static const uint8_t UUID_DEVICE[] = {0x93, 0xA0, 0x1C, 0x71, 0x03, 0xFC, 0x4D, 
 #define IDX_REG_POT2_WATCH    1037
 #define IDX_REG_POT2_URATE    1038
 
+#define IDX_REG_CUSTOM_ID     1039
+
 
 // Wrappers for hardware components
 //
@@ -104,6 +109,19 @@ int freeRam () {
    extern int __heap_start, *__brkval; 
    int v; 
    return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
+}
+
+
+void readEEPROM(int offset, uint8_t* data, int length) {
+   for (int i = 0; i < length; ++i) {
+      data[i] = EEPROM.read(offset + i);
+   }
+}
+
+void writeEEPROM(int offset, const uint8_t* data, int length) {
+   for (int i = 0; i < length; ++i) {
+      EEPROM.write(offset + i, data[i]);
+   }
 }
 
 
@@ -211,6 +229,19 @@ int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* 
             *((uint16_t*) data) = pot2.getUpdateRate();
             return 2;
 
+         // persistent register
+         //
+         case IDX_REG_CUSTOM_ID:
+            if (len == 0) {
+               len = 16 - pos;
+            }
+            if (pos + len <= 16) {
+               readEEPROM(0 + pos, data, len);
+               return len;
+            } else {
+               return SRDP_ERR_INVALID_REG_POSLEN;
+            }
+
          case IDX_REG_LED1:
          case IDX_REG_LED2:
          case IDX_REG_LED3:
@@ -298,6 +329,16 @@ int register_write(void* userdata, int dev, int reg, int pos, int len, const uin
          case IDX_REG_POT2_URATE:
             pot2.setUpdateRate(*((const uint16_t*) data));
             return 2;
+
+         // persistent register
+         //
+         case IDX_REG_CUSTOM_ID:
+            if (pos + len <= 16) {
+               writeEEPROM(0 + pos, data, len);
+               return len;
+            } else {
+               return SRDP_ERR_INVALID_REG_POSLEN;
+            }
 
          case IDX_REG_BTN1:         
          case IDX_REG_BTN2:

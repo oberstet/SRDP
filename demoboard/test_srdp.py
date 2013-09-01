@@ -97,16 +97,21 @@ class DemoBoardHostProtocol(SrdpHostProtocol):
 
    def startup(self):
       log.msg('Startup.')
-      self.writeRegister(1, 1028, "\x01")
-      self.writeRegister(1, 1030, "\x01")
-      self.writeRegister(1, 1033, "\x01")
-      self.writeRegister(1, 1037, "\x01")
+      #self.writeRegister(1, 1028, "\x01")
+      #self.writeRegister(1, 1030, "\x01")
+      #self.writeRegister(1, 1033, "\x01")
+      #self.writeRegister(1, 1037, "\x01")
+
+      #self.writeRegister(1, 1039, "\x66"*16)
+      #self.readRegister(1, 1039, 0, 16)
+      #self.readRegister(1, 1031)
+      self.readRegister(1, 1039)
       #self.readRegister(0, 1024) # free RAM
       #self.readRegister(0, 4)
       #self.readRegister(0, 5)
       #self.readRegister(0, 1024)
       #self.writeRegister(1, 1032, struct.pack("<H", 255))
-      reactor.callLater(0, self.doTest)
+      #reactor.callLater(0, self.doTest)
       #reactor.callLater(3, self.doReadStats)
 
    def connectionMade(self):
