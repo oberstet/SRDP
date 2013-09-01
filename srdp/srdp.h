@@ -185,8 +185,7 @@ int srdp_register_change(srdp_channel_t* channel,
                          int dev,
                          int reg,
                          int pos,
-                         int len,
-                         const uint8_t* data);
+                         int len);
 
 
 // Called by driver to let SRDP processing happen.

@@ -492,37 +492,22 @@ void loop() {
    // process buttons
    //
    if (btn1.process() && btn1.isWatched()) {
-      // OR: simply trigger a read register .. code only once.
-
-      // when button changed, report change to SRDP
-      uint8_t data[5];
-      *((uint32_t*) (data + 0)) = btn1.getTime();
-      *((uint8_t*) (data + 4)) = btn1.getState();
-      srdp_register_change(&channel, IDX_DEV, IDX_REG_BTN1, 0, sizeof(data), (const uint8_t*) &data);
+      // when button changed, trigger sending of SRDP change frame
+      srdp_register_change(&channel, IDX_DEV, IDX_REG_BTN1, 0, 0);
    }
 
    if (btn2.process() && btn2.isWatched()) {
-      uint8_t data[5];
-      *((uint32_t*) (data + 0)) = btn2.getTime();
-      *((uint8_t*) (data + 4)) = btn2.getState();
-      srdp_register_change(&channel, IDX_DEV, IDX_REG_BTN2, 0, sizeof(data), (const uint8_t*) &data);
+      srdp_register_change(&channel, IDX_DEV, IDX_REG_BTN2, 0, 0);
    }
-
 
    // process potis
    //
    if (pot1.process() && pot1.isWatched()) {
-      uint8_t data[6];
-      *((uint32_t*) (data + 0)) = pot1.getTime();
-      *((uint16_t*) (data + 4)) = pot1.getState();
-      srdp_register_change(&channel, IDX_DEV, IDX_REG_POT1, 0, sizeof(data), (const uint8_t*) &data);
+      srdp_register_change(&channel, IDX_DEV, IDX_REG_POT1, 0, 0);
    }
 
    if (pot2.process() && pot2.isWatched()) {
-      uint8_t data[6];
-      *((uint32_t*) (data + 0)) = pot2.getTime();
-      *((uint16_t*) (data + 4)) = pot2.getState();
-      srdp_register_change(&channel, IDX_DEV, IDX_REG_POT2, 0, sizeof(data), (const uint8_t*) &data);
+      srdp_register_change(&channel, IDX_DEV, IDX_REG_POT2, 0, 0);
    }
 
 #else

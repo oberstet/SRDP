@@ -36,8 +36,7 @@ int srdp_register_change(srdp_channel_t* channel,
                          int dev,
                          int reg,
                          int pos,
-                         int len,
-                         const uint8_t* data) {
+                         int len) {
    return 0;
 }
 
@@ -341,13 +340,24 @@ void srdp_init_channel(srdp_channel_t* channel,
 }
 
 
-int srdp_register_change(srdp_channel_t* channel, int dev, int reg, int pos, int len, const uint8_t* data) {
-   if (true) {
-      int i;
-      for (i = 0; i < len; ++i) {
-         channel->out.data[i] = data[i];
-      }
-      send_frame(channel, SRDP_FT_REQ, SRDP_OP_CHANGE, dev, reg, pos, len);
+int srdp_register_change(srdp_channel_t* channel, int dev, int reg, int pos, int len) {
+
+   int res;
+
+   if (dev == 0 && reg < 1024) {
+      // driver builtin register
+      res = driver_register_read(channel, dev, reg, pos, len, channel->out.data);
+   }
+   else if (channel->register_read) {
+      res = channel->register_read(channel->userdata, dev, reg, pos, len, channel->out.data);
+   } else {
+      // FIXME: send error
+   }
+
+   if (res < 0) {
+      // FIXME: send error
+   } else {
+      send_frame(channel, SRDP_FT_REQ, SRDP_OP_CHANGE, dev, reg, pos, res);
       channel->_sent_reg_change_req += 1;
    }
 }
