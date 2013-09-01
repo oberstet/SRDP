@@ -322,7 +322,6 @@ void setup() {
    //
    Serial.begin(115200); // default SERIAL_8N1
    Serial.setTimeout(10);
-   //Serial.flush();
 
    // setup SRDP channel over serial
    //
@@ -354,16 +353,10 @@ void setup() {
 }
 
 
-#ifdef SRDP_DUMMY
-   bool did_report = false;
-#endif
-
 
 // Arduino main run loop
 //
 void loop() {
-
-#ifndef SRDP_DUMMY   
 
    // process SRDP
    //
@@ -391,19 +384,6 @@ void loop() {
    if (pot2.process() && pot2.isWatched()) {
       srdp_register_change(&channel, IDX_DEV, IDX_REG_POT2, 0, 0);
    }
-
-#else
-
-   Serial.flush();
-   Serial.println("Arduino connected.");
-/*
-   if (!did_report) {
-      Serial.println(freeRam());
-      did_report = true;
-      Serial.println("Report end.");
-   }
-*/
-#endif
 
    // limit update frequency
    //
