@@ -39,7 +39,7 @@
             {
                "field": "time",
                "type": "uint32",
-               "desc": "Sample time of `value` in microseconds since MCU startup. Will overflow in around 70 minutes."
+               "desc": "Sample time of `state` in microseconds since MCU startup. Will overflow in around 70 minutes."
             },
             {
                "field": "state",
@@ -68,12 +68,12 @@
             {
                "field": "time",
                "type": "uint32",
-               "desc": "Sample time of `state` in microseconds since MCU startup. Will overflow in around 70 minutes."
+               "desc": "Sample time of `value` in microseconds since MCU startup. Will overflow in around 70 minutes."
             },
             {
                "field": "value",
                "type": "uint16",
-               "desc": "Current slider value: [0, max] where max is set via a configuration register."
+               "desc": "Current slider value: [0, max] where `max` is set via a configuration register `/slider#max`."
             }
          ],
          "count": 1,

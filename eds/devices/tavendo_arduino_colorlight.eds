@@ -1,0 +1,33 @@
+{
+   "uri": "http://eds.tavendo.com/device/arduino-rgb-led",
+
+   "label": "Arduino RGB Color LED",
+
+   "desc": "An implementation of the 'Color Light' device profile using an RGB color LED connected to an Arduino.",
+
+   "vendor": {
+      "uri": "http://tavendo.com",
+      "label": "Tavendo GmbH",
+      "web": "http://www.tavendo.com/"
+   },
+
+   "model": {
+      "uri": "http://tavendo.com/model/arduino-demoboard#2013-v1",
+      "label": "Arduino Demoboard 2013",
+      "web": "http://www.tavendo.com/lab/arduino/demoboard"
+   },
+
+   "registers": [
+
+      "http://eds.tavendo.com/device/device",
+      "http://eds.tavendo.com/device/colorlight",
+      {
+         "index": 1025,
+         "path": "/light#flashrate",
+         "access": "readwrite",
+         "type": "float",
+         "count": 1,
+         "desc": "LED flash rate in Hz or 0 for no flashing. Default is 0."
+      }
+   ]
+}

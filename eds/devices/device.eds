@@ -1,0 +1,45 @@
+{
+   "uri": "http://eds.tavendo.com/device/device",
+
+   "label": "Color Light",
+
+   "desc": "'Color Light' is a single light source capable of emitting light in the RGB color space.",
+
+   "registers": [
+      {
+         "index": 1,
+         "path": "/system/id",
+         "access": "read",
+         "type": "uint8",
+         "count": 16,
+         "desc": "The globally unique 128-Bit UUID of the device."
+      },
+
+      {
+         "index": 2,
+         "path": "/system/eds",
+         "access": "read",
+         "type": "string",
+         "count": 1,
+         "desc": "The URI of the electronic datasheet (EDS) of the device."
+      },
+
+      {
+         "index": 3,
+         "path": "/system/version#hardware",
+         "access": "read",
+         "type": "string",
+         "count": 1,
+         "desc": "Optional register: hardware version."
+      },
+
+      {
+         "index": 4,
+         "path": "/system/version#firmware",
+         "access": "read",
+         "type": "string",
+         "count": 1,
+         "desc": "Optional register: firmware version."
+      }
+   ]
+}
