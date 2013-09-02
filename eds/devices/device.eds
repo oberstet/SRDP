@@ -1,9 +1,9 @@
 {
    "uri": "http://eds.tavendo.com/device/device",
 
-   "label": "Color Light",
+   "label": "Base Device",
 
-   "desc": "'Color Light' is a single light source capable of emitting light in the RGB color space.",
+   "desc": "'Base Device' defines the base profiles with mandatory and optional general attributes of devices.",
 
    "registers": [
       {
