@@ -1,9 +1,9 @@
 {
-   "uri": "http://eds.tavendo.com/device/device",
+   "uri": "http://eds.tavendo.com/adapter/adapter",
 
-   "label": "Base Device",
+   "label": "Base Adapter",
 
-   "desc": "'Base Device' defines the base profiles with mandatory and optional general attributes of devices.",
+   "desc": "'Base Adapter' defines the base profiles with mandatory and optional general attributes of adapters.",
 
    "registers": [
       {
@@ -13,7 +13,7 @@
          "access": "read",
          "type": "uint8",
          "count": 16,
-         "desc": "The globally unique 128-Bit UUID of the device."
+         "desc": "The globally unique 128-Bit UUID of the driver."
       },
 
       {
@@ -23,7 +23,7 @@
          "access": "read",
          "type": "char",
          "count": "uint16",
-         "desc": "The URI of the electronic datasheet (EDS) of the device."
+         "desc": "The URI of the electronic datasheet (EDS) of the driver."
       },
 
       {
@@ -33,7 +33,7 @@
          "access": "read",
          "type": "char",
          "count": "uint16",
-         "desc": "Optional register: device hardware version."
+         "desc": "Optional register: adapter hardware version."
       },
 
       {
@@ -43,7 +43,17 @@
          "access": "read",
          "type": "char",
          "count": "uint16",
-         "desc": "Optional register: device firmware version."
+         "desc": "Optional register: adapter firmware version."
+      },
+
+      {
+         "index": 5,
+         "path": "/system/devices",
+         "optional": false,
+         "access": "read",
+         "type": "uint16",
+         "count": "uint16",
+         "desc": "The indices of the currently connected devices."
       }
    ]
 }

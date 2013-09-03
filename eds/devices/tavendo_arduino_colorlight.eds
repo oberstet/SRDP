@@ -12,18 +12,19 @@
    },
 
    "model": {
-      "uri": "http://tavendo.com/model/arduino-demoboard#2013-v1",
-      "label": "Arduino Demoboard 2013",
+      "uri": "http://tavendo.com/model/adb2013rgbled",
+      "label": "ADB2013-RGBLED",
       "web": "http://www.tavendo.com/lab/arduino/demoboard"
    },
 
    "registers": [
 
-      "http://eds.tavendo.com/device/device",
       "http://eds.tavendo.com/device/colorlight",
+
       {
          "index": 1025,
          "path": "/light#flashrate",
+         "optional": false,
          "access": "readwrite",
          "type": "float",
          "count": 1,

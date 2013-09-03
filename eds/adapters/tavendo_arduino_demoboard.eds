@@ -1,0 +1,44 @@
+{
+   "uri": "http://eds.tavendo.com/adapter/arduino-demoboard",
+
+   "label": "Tavendo Arduino Demoboard",
+
+   "desc": "'Tavendo Arduino Demoboard' combines 1 'Color Light' and 2 'Combo Control' devices. .",
+
+   "vendor": {
+      "uri": "http://tavendo.com",
+      "label": "Tavendo GmbH",
+      "web": "http://www.tavendo.com/"
+   },
+
+   "model": {
+      "uri": "http://tavendo.com/model/adb2013",
+      "label": "ADB2013",
+      "web": "http://www.tavendo.com/lab/arduino/demoboard"
+   },
+
+   "registers": [
+
+      "http://eds.tavendo.com/adapter/adapter",
+      
+      {
+         "index": 1024,
+         "path": "/freemem",
+         "optional": false,
+         "access": "read",
+         "type": "uint32",
+         "count": 1,
+         "desc": "Currently free memory (bytes)."
+      },
+
+      {
+         "index": 1025,
+         "path": "/userdata",
+         "optional": false,
+         "access": "readwrite",
+         "type": "uint8",
+         "count": 64,
+         "desc": "Arbitrary user data persistently stored in device EEPROM. The default content is undefined."
+      }
+   ]
+}

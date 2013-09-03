@@ -1,0 +1,23 @@
+{
+   "uri": "http://eds.tavendo.com/device/arduino-combocontrol",
+
+   "desc": "Arduino based combination of a LED, a button and a potentiometer.",
+
+   "vendor": {
+      "uri": "http://tavendo.com",
+      "label": "Tavendo GmbH",
+      "web": "http://www.tavendo.com/"
+   },
+
+   "model": {
+      "uri": "http://tavendo.com/model/adb2013combo",
+      "label": "ADB2013-COMBO",
+      "web": "http://www.tavendo.com/lab/arduino/demoboard"
+   },
+
+   "registers": [
+
+      "http://eds.tavendo.com/device/combocontrol"
+
+   ]
+}

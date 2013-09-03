@@ -4,27 +4,13 @@
    "desc": "'Combo Control' is a human interaction device combining a button, a linear control (e.g. a potentiometer) with a single, digital notification output (e.g. a LED).",
 
    "registers": [
-      {
-         "index": 1,
-         "path": "/system/id",
-         "access": "read",
-         "type": "uint8",
-         "count": 16,
-         "desc": "The globally unique 128-Bit UUID of the device."
-      },
 
-      {
-         "index": 2,
-         "path": "/system/eds",
-         "access": "read",
-         "type": "string",
-         "count": 1,
-         "desc": "The URI of the electronic datasheet (EDS) of the device."
-      },
+      "http://eds.tavendo.com/device/device",
 
       {
          "index": 1024,
          "path": "/light",
+         "optional": false,
          "access": "write",
          "type": "uint8",
          "count": 1,
@@ -34,6 +20,7 @@
       {
          "index": 1025,
          "path": "/button",
+         "optional": false,
          "access": "read",
          "type": [
             {
@@ -54,6 +41,7 @@
       {
          "index": 1026,
          "path": "/button#watch",
+         "optional": false,
          "access": "readwrite",
          "type": "uint8",
          "count": 1,
@@ -63,6 +51,7 @@
       {
          "index": 1027,
          "path": "/slider",
+         "optional": false,
          "access": "read",
          "type": [
             {
@@ -83,6 +72,7 @@
       {
          "index": 1028,
          "path": "/slider#max",
+         "optional": false,
          "access": "readwrite",
          "type": "uint16",
          "count": 1,
@@ -92,6 +82,7 @@
       {
          "index": 1029,
          "path": "/slider#watch",
+         "optional": false,
          "access": "readwrite",
          "type": "uint8",
          "count": 1,
@@ -101,6 +92,7 @@
       {
          "index": 1030,
          "path": "/slider#urate",
+         "optional": true,
          "access": "readwrite",
          "type": "float",
          "count": 1,

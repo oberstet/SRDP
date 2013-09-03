@@ -12,6 +12,7 @@
       {
          "index": 1024,
          "path": "/light",
+         "optional": false,
          "access": "write",
          "type": [
             {
