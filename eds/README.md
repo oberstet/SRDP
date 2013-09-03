@@ -1,10 +1,18 @@
 # EDS
 
+This document describes the format and meaning of **SRDP electronic datasheets**.
+
+You can find examples of EDS files in the folders next to this document:
+
+  * ./devices/***.eds**
+  * ./adapters/***.eds**
+
 ## Introduction
 
 An SRDP host maintains a database of electronic datasheets (EDSs). Besides general information, an EDS describes the **register map** of an *adapter* or a *device* in a computer readable form. Each EDS is uniquely identified by a URI.
 
 Using the EDS and in particular the register map description contained in the EDS allows the SRDP host to make use of the specific functionality exposed via the adapter registers - automatically and without further manual configuration.
+
 
 ## EDS File Format
 
@@ -180,7 +188,12 @@ The type is specified by providing a list of *fields*, and for each *field*, the
 *Vectors* of *dictionaries* have a `type` field that describes a dictionary (e.g. as in the dictionary example above) and a `count` different from `1` - that is either an integer >1 or an unsigned integer type (e.g. as in the vector example above).
 
 
-## Operations
+## Register Map Inheritance
+
+Write me.
+
+
+## Adapter and Device Discovery
 
 An *adapter* connects *devices* to a SRDP host. When a SRDP adapter is connected to an SRDP host, the host will first query the adapter (which has the fixed device index `1`) at the following two predefined, mandatory registers:
 
