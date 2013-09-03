@@ -1,44 +1,53 @@
 # EDS
 
+## Introduction
+
 An SRDP host maintains a database of electronic datasheets (EDSs). Besides general information, an EDS describes the **register map** of an *adapter* or a *device* in a computer readable form. Each EDS is uniquely identified by a URI.
 
-An *adapter* connects *devices* to a SRDP host. When a SRDP adapter is connected to an SRDP host, the host will first query the adapter (which has the fixed device index `1`) at the following two predefined, mandatory registers:
+Using the EDS and in particular the register map description contained in the EDS allows the SRDP host to make use of the specific functionality exposed via the adapter registers - automatically and without further manual configuration.
 
-  1. *Adapter ID*: Register index `1` (mapped to path `/system/id` on the host)
-  2. *Adapter EDS*: Register index `2` (mapped to path `/system/eds` on the host)
+## EDS File Format
 
-The *Adapter ID* register contains a unique 128-Bit UUID identifying the individual adapter, e.g.
+An EDS is provided as a JSON encoded file. The core structure of the JSON contained in an EDS is as follows:
 
-	550e8400-e29b-41d4-a716-446655440000
+	{
+	   "uri":   <A string with an URI (HTTP scheme) identifying the EDS>,
+	
+	   "label": <A string with a short, human readable device/adapter label>,
+	
+	   "desc":  <A string with a detailed, human readable device/adapter description>,
+	
+	   "registers": [
+           ... device/adapter register map - see next section ...
+	   ]
+	}
 
-The *Adapter EDS* register contains a string with the URI identifying the EDS that applies to the adapter, e.g.
+A *concrete* device/adapter may contain additional information about the  device/adapter **vendor** and/or **model**:
 
-	http://eds.tavendo.com/adapter/arduino-demoboard
+	{
+	   "uri":   <...>,
+	   "label": <...>,
+	   "desc":  <...>,
+	
+	   "vendor": {
+	      "uri":   <A string with an URI (HTTP scheme) identifying the device/adapter vendor>,
+	      "label": <A string with a short, human vendor label>
+	      "web":   <A string with a Web link to the vendor>
+	   },
+	
+	   "model": {
+	      "uri":   <A string with an URI (HTTP scheme) identifying the device/adapter model>,
+	      "label": <A string with a short, human model label>
+	      "web":   <A string with a Web link for the model/product>
+	   },
+	
+	   "registers": [
+           ... device/adapter register map - see next section ...
+	   ]
+	}
 
-The SRDP host looks up the adapter EDS in it's EDS database. Using the EDS allows the SRDP host to automatically make use of the specific functionality exposed via the adapter registers.
 
-In the next step, the SRDP host queries the following (mandatory) register:
-
-  2. *Device List*: Register index `5` (mapped to path `/system/devices` on the host)
-
-The *Device List* register contains a vector with device indices of all devices currently connected to the adapter, e.g.
-
-	2, 3, 4
-
-In this example, there are three devices currently connected to the adapter. Device index `1` is not used, since it is reserved for the adapter itself. The device index `0` MAY appear in the vector, but is ignored.
-
-Dependent on the SRDP host configuration, the host then starts to query the detected devices at the following two predefined registers:
-
-  1. *Device ID*: Rregister index `1` (mapped to path `/system/id` on the host)
-  2. *Device EDS* (register index `2` (mapped to path `/system/eds` on the host)
-
-The *Device ID* register contains a unique 128-bit UUID value.
-
-The *Device EDS* register contains the URI of the EDS applying to the device.
-
-Using the EDS, the host then knows how to communicate with the device.
-
-# Register Descriptors
+## Register Maps
 
 
     {
@@ -52,11 +61,11 @@ Using the EDS, the host then knows how to communicate with the device.
     }
 
 
-## Register Types
+### Register Types
 
 The type system for registers is richer than key-value, but simpler than JSON. It's designed to work efficiently on restricted devices like 8-Bit MCUs with 2kB RAM.
 
-### Scalar Types
+#### Scalar Types
 
 The following scalar types are defined in SRDP.
 
@@ -83,7 +92,7 @@ The following scalar types are defined in SRDP.
 
    * `char`
 
-### Composite Types
+#### Composite Types
 
 Besides having a scalar type, a register can have one of three composite types:
 
@@ -93,7 +102,7 @@ Besides having a scalar type, a register can have one of three composite types:
 
 Note that other composite types like *dictionary* of *vectors* are invalid.
 
-### Vectors
+#### Vectors
 
 The number of elements contained in each register must be specified using the `count` attribute. A scalar type register has a `count` of `1`.
 
@@ -135,7 +144,7 @@ The register contents is the UTF-8 encoded Unicode string (prefixed by the integ
 > Note that when accessing parts of a string register, `position` and `length` are byte-wise and as such may fall into the middle of a UTF-8 encoded single character. Hence, with strings, the ability of SRDP to access only part of an register is of limited use.
 
 
-### Dictionaries
+#### Dictionaries
 
 A register can have *dictionary*  type, e.g.
 
@@ -166,12 +175,49 @@ A register can have *dictionary*  type, e.g.
 
 The type is specified by providing a list of *fields*, and for each *field*, the field name (`field`), the field type (`type`) - which must be a scalar type - and the field description (`desc`).
 
-### Vectors of Dictionaries
+#### Vectors of Dictionaries
 
 *Vectors* of *dictionaries* have a `type` field that describes a dictionary (e.g. as in the dictionary example above) and a `count` different from `1` - that is either an integer >1 or an unsigned integer type (e.g. as in the vector example above).
 
 
-# Example
+## Operations
+
+An *adapter* connects *devices* to a SRDP host. When a SRDP adapter is connected to an SRDP host, the host will first query the adapter (which has the fixed device index `1`) at the following two predefined, mandatory registers:
+
+  1. *Adapter ID*: Register index `1` (mapped to path `/system/id` on the host)
+  2. *Adapter EDS*: Register index `2` (mapped to path `/system/eds` on the host)
+
+The *Adapter ID* register contains a unique 128-Bit UUID identifying the individual adapter, e.g.
+
+	550e8400-e29b-41d4-a716-446655440000
+
+The *Adapter EDS* register contains a string with the URI identifying the EDS that applies to the adapter, e.g.
+
+	http://eds.tavendo.com/adapter/arduino-demoboard
+
+The SRDP host looks up the adapter EDS in it's EDS database by URI.
+
+In the next step, the SRDP host queries the following (mandatory) register:
+
+  2. *Device List*: Register index `5` (mapped to path `/system/devices` on the host)
+
+The *Device List* register contains a vector with device indices of all devices currently connected to the adapter, e.g.
+
+	2, 3, 4
+
+In this example, there are three devices currently connected to the adapter. Device index `1` is not used, since it is reserved for the adapter itself. The device index `0` MAY appear in the vector, but is ignored. The order of device indices is unspecified. Indices (other than `0`) MUST NOT appear more than once.
+
+Dependent on the SRDP host configuration, the host then starts to query the detected devices at the following two predefined registers:
+
+  1. *Device ID*: Rregister index `1` (mapped to path `/system/id` on the host)
+  2. *Device EDS* (register index `2` (mapped to path `/system/eds` on the host)
+
+The *Device ID* register contains a unique 128-bit UUID value. The *Device EDS* register contains the URI of the EDS applying to the device.
+Using the EDS, the host then knows how to communicate with the device.
+
+
+
+## Example
 
 The device profile with URI `http://eds.tavendo.com/device/arduino-rgb-led` in file `devices/tavendo_arduino_colorlight.eds` defines general information such as
 
