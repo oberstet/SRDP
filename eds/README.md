@@ -79,51 +79,45 @@ The `path` is a string containing an URI path component that is used by the SRDP
 
 While the `index` of an register is used only in the communication *in between* host and adapter, the register URIs can be used to address registers from *outside*.
 
-> The URI pth component MUST NOT contain path manipulators like `..` or query parts (`?`), but MAY contain fragments (`#`).
+> 1. Both `index` and `path` must be unique (not appear more than once) within a given adapter or device register map.
+> 2. The URI pth component MUST NOT contain path manipulators like `..` or query parts (`?`), but MAY contain fragments (`#`).
 > 
 
 The boolean valued `optional` attribute specifies if the register is optional, and hence an individual device or adapter may or may not implement the register. Or a given adapter or device may choose to make an optional register only available under certain conditions or upon activation. 
 
-The `access` attribute specifies the access level the host is given by the adapter or device. The three possible values are the following strings:
+The `access` string attribute specifies the access level the host is given by the adapter or device. The three possible values are:
 
- * "read"
- * "write"
- * "readwrite"
+ * `read`
+ * `write`
+ * `readwrite`
 
 The `type` and `count` attributes specify the type of values in the register. These attributes are described in the next section.
 
-The `desc` attributes is of type string and contains a human readable description of the register. The text should be addressed to application developers.
+The `desc` string attribute contains a human readable description of the register and it's function. The text should be addressed to application developers.
 
 
 ### Register Types
 
-The type system for registers is richer than key-value, but simpler than JSON. It's designed to work efficiently on restricted devices like 8-Bit MCUs with 2kB RAM.
+The type system for registers is richer than key-value, but simpler than JSON. It is designed to work efficiently on even very restricted devices like for example 8-Bit MCUs with 2kB RAM.
 
 #### Scalar Types
 
 The following scalar types are defined in SRDP.
 
 1. Unsigned integers:
- 
    * `uint8`
    * `uint16`
    * `uint32`
    * `uint64`
-
 2. Signed integers:
-
    * `int8`
    * `int16`
    * `int32`
    * `int64`
-
 3. IEEE single and double floating point:
-
    * `float`
    * `double`
-
 4. Single Byte from UTF-8 encoded Unicode string:
-
    * `char`
 
 #### Composite Types
