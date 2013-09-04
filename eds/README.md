@@ -4,14 +4,14 @@ This document describes the format and meaning of **SRDP electronic datasheets**
 
 You can find examples of EDS files in the folders next to this document:
 
-  * ./devices/***.eds**
-  * ./adapters/***.eds**
+  * ./devices/*.eds
+  * ./adapters/*.eds
 
 ## Introduction
 
 An SRDP host maintains a database of electronic datasheets (EDSs). Besides general information, an EDS describes the **register map** of an *adapter* or a *device* in a computer readable form. Each EDS is uniquely identified by a URI.
 
-Using the EDS and in particular the register map description contained in the EDS allows the SRDP host to make use of the specific functionality exposed via the adapter registers - automatically and without further manual configuration.
+Using the EDS and in particular the register map description contained in the EDS allows the SRDP host to make use of the specific functionality exposed via the adapter or device registers - automatically and without further manual configuration.
 
 
 ## EDS File Format
@@ -57,16 +57,42 @@ A *concrete* device/adapter may contain additional information about the  device
 
 ## Register Maps
 
+*Register maps* describe the registers a device or adapter exposes via SRDP. Here is an example:
 
-    {
-       "index":    1,
-       "path":     "/system/id",
-       "optional": false,
-       "access":   "read",
-       "type":     "uint8",
-       "count":    16,
-       "desc":     "The globally unique 128-Bit UUID of the driver."
-    }
+      {
+         "index":    1024,
+         "path":     "/light",
+
+         "optional": false,
+         "access":   "write",
+         "type":     "uint8",
+         "count":    1,
+
+         "desc":     "LED (monochrome). Any non-zero value turns the LED on. Default is off."
+      },
+
+This describes a register that controls a single monochrome LED.
+
+The `index` is an integer addressing the respective register. Integers <1024 are reserved for registers predefined by SRDP. The registers 1024 - 65535 are available for user registers.
+
+The `path` is a string containing an URI path component that is used by the SRDP host to map registers to fully qualified URIs.
+
+While the `index` of an register is used only in the communication *in between* host and adapter, the register URIs can be used to address registers from *outside*.
+
+> The URI pth component MUST NOT contain path manipulators like `..` or query parts (`?`), but MAY contain fragments (`#`).
+> 
+
+The boolean valued `optional` attribute specifies if the register is optional, and hence an individual device or adapter may or may not implement the register. Or a given adapter or device may choose to make an optional register only available under certain conditions or upon activation. 
+
+The `access` attribute specifies the access level the host is given by the adapter or device. The three possible values are the following strings:
+
+ * "read"
+ * "write"
+ * "readwrite"
+
+The `type` and `count` attributes specify the type of values in the register. These attributes are described in the next section.
+
+The `desc` attributes is of type string and contains a human readable description of the register. The text should be addressed to application developers.
 
 
 ### Register Types
