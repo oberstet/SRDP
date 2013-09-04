@@ -9,14 +9,14 @@ You can find examples of EDS files in the folders next to this document:
 
 ## Introduction
 
-An SRDP host maintains a database of electronic datasheets (EDSs). Besides general information, an EDS describes the **register map** of an *adapter* or a *device* in a computer readable form. Each EDS is uniquely identified by a URI.
+A SRDP host maintains a database of electronic datasheets (EDSs). Besides general information, an EDS describes the **register map** of an *adapter* or a *device* in a computer readable form. Each EDS is uniquely identified by a URI.
 
-Using the EDS and in particular the register map description contained in the EDS allows the SRDP host to make use of the specific functionality exposed via the adapter or device registers - automatically and without further manual configuration.
+Using the EDS - and in particular the register map description contained in the EDS - allows the SRDP host to make use of the specific functionality exposed via the adapter or device registers - automatically and without further manual configuration.
 
 
 ## EDS File Format
 
-An EDS is provided as a JSON encoded file. The core structure of the JSON contained in an EDS is as follows:
+An EDS is provided as a *JSON* encoded file. The core structure of the JSON contained in an EDS is as follows:
 
 	{
 	   "uri":   <A string with an URI (HTTP scheme) identifying the EDS>,
@@ -214,12 +214,42 @@ The type is specified by providing a list of *fields*, and for each *field*, the
 *Vectors* of *dictionaries* have a `type` field that describes a dictionary (e.g. as in the dictionary example above) and a `count` different from `1` - that is either an integer >1 or an unsigned integer type (e.g. as in the vector example above).
 
 
+## Watching Registers
+
+Write me.
+
+### Watching Vector Registers
+
+
 ## Register Map Inheritance
 
 Write me.
 
+The device profile with URI `http://eds.tavendo.com/device/arduino-rgb-led` in file `devices/tavendo_arduino_colorlight.eds` defines general information such as
+
+  * Vendor
+  * Model
+
+and the complete device register map by both referring to other EDSs (1, 2) and providing register signatures:
+
+    http://eds.tavendo.com/device/arduino-rgb-led
+      |
+      +-- http://eds.tavendo.com/device/device        (1)
+      |
+      +-- http://eds.tavendo.com/device/colorlight    (2)
+      |
+      +-- ...                                         (3)
+
+ 
+After the host has resolved the device EDS, the register map applied will be - sorted by register index.
+
+
 
 ## Adapter and Device Discovery
+
+SRDP defines a mechanism for plug-and-play of devices that allows automatic discovery and configuration. This section describes the mechanism.
+
+### Initial Discovery
 
 An *adapter* connects *devices* to a SRDP host. When a SRDP adapter is connected to an SRDP host, the host will first query the adapter (which has the fixed device index `1`) at the following two predefined, mandatory registers:
 
@@ -248,123 +278,28 @@ In this example, there are three devices currently connected to the adapter. Dev
 
 Dependent on the SRDP host configuration, the host then starts to query the detected devices at the following two predefined registers:
 
-  1. *Device ID*: Rregister index `1` (mapped to path `/system/id` on the host)
-  2. *Device EDS* (register index `2` (mapped to path `/system/eds` on the host)
+  1. *Device ID*: Register index `1` (mapped to path `/system/id` on the host)
+  2. *Device EDS* Register index `2` (mapped to path `/system/eds` on the host)
 
 The *Device ID* register contains a unique 128-bit UUID value. The *Device EDS* register contains the URI of the EDS applying to the device.
 Using the EDS, the host then knows how to communicate with the device.
 
+### Static and Dynamic Device Lists
 
+An adapter may manage a fixed set of devices or may allow devices to dynamically connect and disconnect from the adapter.
 
-## Example
+When the adapter manages a fixed set of devices, the contents of the *Device List* register never changes.
 
-The device profile with URI `http://eds.tavendo.com/device/arduino-rgb-led` in file `devices/tavendo_arduino_colorlight.eds` defines general information such as
+Enabling register watching on the *Device List* register is allowed, but will never generate any register change event since the register contents is static.
 
-  * Vendor
-  * Model
+When the adapter manages a dynamic set of devices the adapter must update the *Device List* register accordingly.
 
-and the complete device register map by both referring to other EDSs (1, 2) and providing register signatures:
+#### *Example 1*
+An adapter that can manage a maximum of 10 devices maintains the device list register as a vector of `uint8` of fixed length 10.
 
-    http://eds.tavendo.com/device/arduino-rgb-led
-      |
-      +-- http://eds.tavendo.com/device/device        (1)
-      |
-      +-- http://eds.tavendo.com/device/colorlight    (2)
-      |
-      +-- ...                                         (3)
+The vector is initialized to 0. When a device is connected, the first non-zero vector position is set to the connecting device index. When no empty vector position is left, the maximum number of devices the adapter can manage is reached. When a device is disconnected, the vector position containing the index of the device being removed is set to `0` again.
 
- 
-After the host has resolved the device EDS, the register map applied will be - sorted by register index:
+Whenever the device index vector changes, the adapter generates a register change event with the complete vector (register contents).
 
-	{1: {'access': 'read',
-	     'count': 16,
-	     'desc': 'The globally unique 128-Bit UUID of the device.',
-	     'index': 1,
-	     'path': '/system/id',
-	     'type': 'uint8'},
-	 2: {'access': 'read',
-	     'count': 1,
-	     'desc': 'The URI of the electronic datasheet (EDS) of the device.',
-	     'index': 2,
-	     'path': '/system/eds',
-	     'type': 'string'},
-	 3: {'access': 'read',
-	     'count': 1,
-	     'desc': 'Optional register: hardware version.',
-	     'index': 3,
-	     'path': '/system/version#hardware',
-	     'type': 'string'},
-	 4: {'access': 'read',
-	     'count': 1,
-	     'desc': 'Optional register: firmware version.',
-	     'index': 4,
-	     'path': '/system/version#firmware',
-	     'type': 'string'},
-	 1024: {'access': 'write',
-	        'count': 1,
-	        'desc': 'Light color (RGB color space). Default is black.',
-	        'index': 1024,
-	        'path': '/light',
-	        'type': [{'desc': 'Red color component value. Default is 0.',
-	                   'field': 'red',
-	                   'type': 'uint8'},
-	                  {'desc': 'Green color component value. Default is 0.',
-	                   'field': 'green',
-	                   'type': 'uint8'},
-	                  {'desc': 'Blue color component value. Default is 0.',
-	                   'field': 'blue',
-	                   'type': 'uint8'}]},
-	 1025: {'access': 'readwrite',
-	        'count': 1,
-	        'desc': 'LED flash rate in Hz or 0 for no flashing. Default is 0.',
-	        'index': 1025,
-	        'path': '/light#flashrate',
-	        'type': 'float'}}
-
-and sorted by path:
-
-	{'/light': {'access': 'write',
-	             'count': 1,
-	             'desc': 'Light color (RGB color space). Default is black.',
-	             'index': 1024,
-	             'path': '/light',
-	             'type': [{'desc': 'Red color component value. Default is 0.',
-	                        'field': 'red',
-	                        'type': 'uint8'},
-	                       {'desc': 'Green color component value. Default is 0.',
-	                        'field': 'green',
-	                        'type': 'uint8'},
-	                       {'desc': 'Blue color component value. Default is 0.',
-	                        'field': 'blue',
-	                        'type': 'uint8'}]},
-	 '/light#flashrate': {'access': 'readwrite',
-	                       'count': 1,
-	                       'desc': 'LED flash rate in Hz or 0 for no flashing. Default is 0.',
-	                       'index': 1025,
-	                       'path': '/light#flashrate',
-	                       'type': 'float'},
-	 '/system/eds': {'access': 'read',
-	                  'count': 1,
-	                  'desc': 'The URI of the electronic datasheet (EDS) of the device.',
-	                  'index': 2,
-	                  'path': '/system/eds',
-	                  'type': 'string'},
-	 '/system/id': {'access': 'read',
-	                 'count': 16,
-	                 'desc': 'The globally unique 128-Bit UUID of the device.',
-	                 'index': 1,
-	                 'path': '/system/id',
-	                 'type': 'uint8'},
-	 '/system/version#firmware': {'access': 'read',
-	                               'count': 1,
-	                               'desc': 'Optional register: firmware version.',
-	                               'index': 4,
-	                               'path': '/system/version#firmware',
-	                               'type': 'string'},
-	 '/system/version#hardware': {'access': 'read',
-	                               'count': 1,
-	                               'desc': 'Optional register: hardware version.',
-	                               'index': 3,
-	                               'path': '/system/version#hardware',
-	                               'type': 'string'}}
-	
+#### *Example 2*
+Write me.
