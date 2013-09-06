@@ -50,12 +50,12 @@
 
 // URIs of the driver and device electronic datasheet (EDS)
 //
-#define URI_DRIVER_EDS "http://eds.device.tavendo.de/arduino/demoboard"
+#define URI_ADAPTER_EDS "http://eds.tavendo.com/adapter/arduino-demoboard"
 #define URI_DEVICE_EDS "http://eds.device.tavendo.de/arduino/demoboard"
 
 // UUIDs of the driver and device
 //
-static const uint8_t UUID_DRIVER[] = {0x6B, 0x32, 0xA0, 0x7A, 0x7F, 0xC8, 0x47, 0xBB, 0x9D, 0x81, 0xF1, 0x41, 0x55, 0x0F, 0x60, 0x4F};
+static const uint8_t UUID_ADAPTER[] = {0x6B, 0x32, 0xA0, 0x7A, 0x7F, 0xC8, 0x47, 0xBB, 0x9D, 0x81, 0xF1, 0x41, 0x55, 0x0F, 0x60, 0x4F};
 static const uint8_t UUID_DEVICE[] = {0x93, 0xA0, 0x1C, 0x71, 0x03, 0xFC, 0x4D, 0x9E, 0x85, 0x2E, 0xBD, 0x2D, 0x8C, 0x82, 0x4D, 0xE8};
 
 
@@ -122,6 +122,10 @@ void writeEEPROM(int offset, const uint8_t* data, int length) {
    for (int i = 0; i < length; ++i) {
       EEPROM.write(offset + i, data[i]);
    }
+}
+
+void log_message(const char* msg, int level) {
+   Serial.println(msg);
 }
 
 
@@ -257,6 +261,18 @@ int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* 
       //
       switch (reg) {
 
+         // Device UUID
+         //
+         case IDX_REG_ID:
+            memcpy(data, UUID_ADAPTER, sizeof(UUID_ADAPTER));
+            return sizeof(UUID_ADAPTER);
+
+         // Device EDS
+         //
+         case IDX_REG_EDS:
+            strncpy((char*) data, URI_ADAPTER_EDS, sizeof(URI_ADAPTER_EDS));
+            return sizeof(URI_ADAPTER_EDS);
+
          // current free memory
          //
          case IDX_REG_FREE_RAM:
@@ -363,16 +379,18 @@ void setup() {
    // configure serial interface
    //
    Serial.begin(115200); // default SERIAL_8N1
-   Serial.setTimeout(10);
+   Serial.setTimeout(0);
+   //Serial.setTimeout(10);
 
    // setup SRDP channel over serial
    //
-   srdp_init_channel(&channel,
-                     transport_write,
-                     transport_read,
-                     register_write,
-                     register_read,
-                     (void*) 0);
+   srdp_init(&channel,
+             transport_write,
+             transport_read,
+             register_write,
+             register_read,
+             log_message,
+             0);
 
    // LED 1
    pinMode(PIN_LED1, OUTPUT);
@@ -410,21 +428,21 @@ void loop() {
    //
    if (btn1.process() && btn1.isWatched()) {
       // when button changed, trigger sending of SRDP change frame
-      srdp_register_change(&channel, IDX_DEV, IDX_REG_BTN1, 0, 0);
+      srdp_notify(&channel, IDX_DEV, IDX_REG_BTN1, 0, 0);
    }
 
    if (btn2.process() && btn2.isWatched()) {
-      srdp_register_change(&channel, IDX_DEV, IDX_REG_BTN2, 0, 0);
+      srdp_notify(&channel, IDX_DEV, IDX_REG_BTN2, 0, 0);
    }
 
    // process potis
    //
    if (pot1.process() && pot1.isWatched()) {
-      srdp_register_change(&channel, IDX_DEV, IDX_REG_POT1, 0, 0);
+      srdp_notify(&channel, IDX_DEV, IDX_REG_POT1, 0, 0);
    }
 
    if (pot2.process() && pot2.isWatched()) {
-      srdp_register_change(&channel, IDX_DEV, IDX_REG_POT2, 0, 0);
+      srdp_notify(&channel, IDX_DEV, IDX_REG_POT2, 0, 0);
    }
 
    // limit update frequency

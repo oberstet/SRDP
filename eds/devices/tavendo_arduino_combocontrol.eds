@@ -17,7 +17,17 @@
 
    "registers": [
 
-      "http://eds.tavendo.com/device/combocontrol"
+      "http://eds.tavendo.com/device/combocontrol",
+
+      {
+         "index": 1031,
+         "path": "/slider#smooth",
+         "optional": true,
+         "access": "readwrite",
+         "type": "float",
+         "count": 1,
+         "desc": "Controls slider analog value smoothing."
+      }
 
    ]
 }

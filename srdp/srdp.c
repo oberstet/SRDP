@@ -239,14 +239,20 @@ void process_incoming_frame (srdp_channel_t* channel) {
 
    int res = SRDP_ERR_NOT_IMPLEMENTED;
 
+   //if (channel->log_message) channel->log_message("323234", 0);
+
    switch (ft) {
       case SRDP_FT_REQ:
-         switch (op) {            
+         switch (op) {
+
+            //SRDP_LOG("** 1");
+            //Serial.println("** 1");
+            //if (channel->log_message) channel->log_message("sdfsdf", 0);
 
             // register read
             //
             case SRDP_OP_READ:
-               if (dev == 0 && reg < 1024) {
+               if (dev == 0 && reg < 1024 && reg > 2) {
                   // driver builtin register
                   res = driver_register_read(channel, dev, reg, pos, len, channel->out.data);
                }
@@ -256,8 +262,13 @@ void process_incoming_frame (srdp_channel_t* channel) {
                   // FIXME: send error
                }
 
+               //SRDP_LOG("** 2");
+               //SRDP_LOG(res);
+
                if (res < 0) {
                   // FIXME: send error
+                  *((uint32_t*) channel->out.data) = res;
+                  send_frame(channel, SRDP_FT_ERR, SRDP_OP_READ, dev, reg, 0, 4);
                } else {
                   send_frame(channel, SRDP_FT_ACK, SRDP_OP_READ, dev, reg, pos, res);
                }
@@ -308,18 +319,21 @@ void process_incoming_frame (srdp_channel_t* channel) {
    }
 }
 
-void srdp_init_channel(srdp_channel_t* channel,
-                       srdp_transport_write transport_write,
-                       srdp_transport_read transport_read,
-                       srdp_register_write register_write,
-                       srdp_register_read register_read,
-                       void* userdata) {
+void srdp_init(srdp_channel_t* channel,
+               srdp_transport_write transport_write,
+               srdp_transport_read transport_read,
+               srdp_register_write register_write,
+               srdp_register_read register_read,
+               srdp_log_message log_message,
+               void* userdata) {
 
    channel->transport_read = transport_read;
    channel->transport_write = transport_write;
 
    channel->register_read = register_read;
    channel->register_write = register_write;
+
+   channel->log_message = log_message;
 
    channel->userdata = userdata;
 
@@ -340,7 +354,7 @@ void srdp_init_channel(srdp_channel_t* channel,
 }
 
 
-int srdp_register_change(srdp_channel_t* channel, int dev, int reg, int pos, int len) {
+int srdp_notify(srdp_channel_t* channel, int dev, int reg, int pos, int len) {
 
    int res;
 
@@ -379,7 +393,14 @@ void srdp_loop(srdp_channel_t* channel) {
          //
          if (channel->_bytes_received >= SRDP_FRAME_HEADER_LEN) {
 
-            int total_frame_len = SRDP_FRAME_HEADER_LEN + channel->in.header.fields.len;
+            int total_frame_len = SRDP_FRAME_HEADER_LEN;
+
+            int ft = (channel->in.header.fields.opdev >> 14) & 0x3;
+            int op = (channel->in.header.fields.opdev >> 12) & 0x3;
+
+            if (ft == SRDP_FT_REQ && op == SRDP_OP_WRITE) {
+               total_frame_len += channel->in.header.fields.len;
+            }
 
             // now that we know frame data length, we want at least the complete frame ..
             //

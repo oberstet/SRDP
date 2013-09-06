@@ -1,0 +1,102 @@
+{
+   "uri": "http://eds.tavendo.com/device/combocontrol",
+
+   "desc": "'Combo Control' is a human interaction device combining a button, a linear control (e.g. a potentiometer) with a single, digital notification output (e.g. a LED).",
+
+   "registers": [
+
+      "http://eds.tavendo.com/device/device",
+
+      {
+         "index": 1024,
+         "path": "/light",
+         "optional": false,
+         "access": "write",
+         "type": "uint8",
+         "count": 1,
+         "desc": "LED (monochrome). Any non-zero value turns the LED on. Default is off."
+      },
+
+      {
+         "index": 1025,
+         "path": "/button",
+         "optional": false,
+         "access": "read",
+         "type": [
+            {
+               "field": "time",
+               "type": "uint32",
+               "desc": "Sample time of `state` in microseconds since MCU startup. Will overflow in around 70 minutes."
+            },
+            {
+               "field": "state",
+               "type": "uint8",
+               "desc": "Current button state: 0 = pressed, 1 = unpressed."
+            }
+         ],
+         "count": 1,
+         "desc": "Button."
+      },
+
+      {
+         "index": 1026,
+         "path": "/button#watch",
+         "optional": false,
+         "access": "readwrite",
+         "type": "uint8",
+         "count": 1,
+         "desc": "Enable watching of button state changes. Iff enabled (any non-zero value will do), generate a register change event whenever the button state changes. Default is disabled."
+      },
+
+      {
+         "index": 1027,
+         "path": "/slider",
+         "optional": false,
+         "access": "read",
+         "type": [
+            {
+               "field": "time",
+               "type": "uint32",
+               "desc": "Sample time of `value` in microseconds since MCU startup. Will overflow in around 70 minutes."
+            },
+            {
+               "field": "value",
+               "type": "uint16",
+               "desc": "Current slider value: [0, max] where `max` is set via a configuration register `/slider#max`."
+            }
+         ],
+         "count": 1,
+         "desc": "Slider."
+      },
+
+      {
+         "index": 1028,
+         "path": "/slider#max",
+         "optional": false,
+         "access": "readwrite",
+         "type": "uint16",
+         "count": 1,
+         "desc": "Maximum value for slider range. Default is 1000."
+      },
+
+      {
+         "index": 1029,
+         "path": "/slider#watch",
+         "optional": false,
+         "access": "readwrite",
+         "type": "uint8",
+         "count": 1,
+         "desc": "Enable watching of slider value changes. Iff enabled (any non-zero value will do), generate a register change event whenever the slider value changes. Default is disabled."
+      },
+
+      {
+         "index": 1030,
+         "path": "/slider#urate",
+         "optional": true,
+         "access": "readwrite",
+         "type": "float",
+         "count": 1,
+         "desc": "Setting a non-zero value T will generate register change events every T seconds regardless of whether the slider value has changed or not. Default is 0."
+      }
+   ]
+}

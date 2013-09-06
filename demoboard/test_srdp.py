@@ -16,7 +16,7 @@
 ##
 ###############################################################################
 
-import sys
+import sys, struct
 
 if sys.platform == 'win32':
    ## on windows, we need to use the following reactor for serial support
@@ -30,6 +30,7 @@ print "Using Twisted reactor", reactor.__class__
 print
 
 from twisted.python import usage, log
+from twisted.internet.defer import Deferred, returnValue, inlineCallbacks
 from twisted.internet.serialport import SerialPort
 
 from srdp import SrdpHostProtocol
@@ -95,16 +96,31 @@ class DemoBoardHostProtocol(SrdpHostProtocol):
    #def dataReceived(self, data):
    #   print data
 
+
+   def logResult(self, data, format):
+      #print data, format
+      print struct.unpack(format, data)
+
+   def logError(self, error):
+      print
+
    def startup(self):
       log.msg('Startup.')
-      self.writeRegister(1, 1028, "\x01")
-      self.writeRegister(1, 1030, "\x01")
-      self.writeRegister(1, 1033, "\x01")
-      self.writeRegister(1, 1037, "\x01")
+      #self.writeRegister(1, 1028, "\x01")
+      #self.writeRegister(1, 1030, "\x01")
+      #self.writeRegister(1, 1033, "\x01")
+      #self.writeRegister(1, 1037, "\x01")
 
       #self.writeRegister(1, 1039, "\x66"*16)
       #self.writeRegister(1, 1039, "hello arduino !!!!")
-      self.readRegister(1, 1039)
+      
+      #d1 = self.readRegister(0, 1024)
+      #d1.addCallback(self.logResult, "<L")
+      #d1.addErrback(self.logError)
+
+      self.readRegister(1, 1039, 0, 64)
+      #self.readRegister(1, 1039)
+
       #self.readRegister(1, 1031)
       #self.readRegister(1, 1039)
       #self.readRegister(0, 1024) # free RAM
@@ -115,9 +131,58 @@ class DemoBoardHostProtocol(SrdpHostProtocol):
       #reactor.callLater(0, self.doTest)
       #reactor.callLater(3, self.doReadStats)
 
+   @inlineCallbacks
+   def getFreeMem(self):
+      try:
+         res = yield self.readRegister(0, 1024)
+      except Exception, e:
+         error_code = struct.unpack("<l", e.args[0])[0]
+         print "error:", error_code
+      else:
+         res = struct.unpack("<L", res)[0]
+         returnValue(res)
+
+
+   @inlineCallbacks
+   def testRegisters(self):
+      #res = yield self.readRegister(0, 1024)
+      #res = None
+      try:
+         res = yield self.readRegister(0, 1024)
+      except Exception, e:
+         error_code = struct.unpack("<l", e.args[0])[0]
+         print "error:", error_code
+      else:
+         res = struct.unpack("<L", res)[0]
+         print "free memory:", res
+
+      return
+
+      res = yield self.readRegister(1, 1039)
+      length = struct.unpack("<H", res[:4])[0]
+
+      res = yield self.writeRegister(1, 1039, "\x66" * length)
+      print "written", res
+
+      res = yield self.readRegister(1, 1039, 0, length)
+      #data = res[4:]
+      #res = struct.unpack("<QQ", res)[0]
+      print "user storage:", length, binascii.hexlify(res)
+
+
+   @inlineCallbacks
+   def runTests(self):
+      print "Free memory: %d" % (yield self.getFreeMem())
+      reactor.stop()
+
+
    def connectionMade(self):
       log.msg('Serial port connected.')
-      reactor.callLater(1, self.startup)
+      #reactor.callLater(1, self.startup)
+      #reactor.callLater(1, self.testRegisters)
+      reactor.callLater(1, self.runTests)
+      #self.testRegisters()
+
 
    def connectionLost(self, reason):
       log.msg('Serial port connection lost: %s' % reason)

@@ -29,6 +29,7 @@
 extern "C" {
 #endif
 
+
 // SRDP frame types
 //
 #define SRDP_FT_REQ     0x01
@@ -62,7 +63,7 @@ extern "C" {
 // the application layer.
 //
 #ifndef SRDP_FRAME_DATA_MAX_LEN
-#  define SRDP_FRAME_DATA_MAX_LEN  256
+#  define SRDP_FRAME_DATA_MAX_LEN  (81 - SRDP_FRAME_HEADER_LEN)
 #endif
 
 
@@ -110,6 +111,8 @@ typedef int (*srdp_register_write) (void* userdata,
                                     int len,
                                     const uint8_t* data);
 
+typedef void (*srdp_log_message) (const char* msg, int level);
+
 
 #ifdef SRDP_DUMMY
 
@@ -143,13 +146,14 @@ typedef struct {
 // SRDP channel (API level: opaque)
 //
 typedef struct {
-   
+
    // callbacks
    //
    srdp_transport_write transport_write;
    srdp_transport_read transport_read;
    srdp_register_write register_write;
    srdp_register_read register_read;
+   srdp_log_message log_message;
 
    // arbitrary userdata forwarded to each callback
    //
@@ -199,22 +203,23 @@ typedef struct {
 
 // Initialize SRDP channel. (API level: public)
 //
-void srdp_init_channel(srdp_channel_t* channel,
-                       srdp_transport_write transport_write,
-                       srdp_transport_read transport_read,
-                       srdp_register_write register_write,
-                       srdp_register_read register_read,
-                       void* userdata);
+void srdp_init(srdp_channel_t* channel,
+               srdp_transport_write transport_write,
+               srdp_transport_read  transport_read,
+               srdp_register_write  register_write,
+               srdp_register_read   register_read,
+               srdp_log_message     log_message,
+               void* userdata);
 
 
 // Called by driver when to transmit a register
 // change (ie a sensor value change).  (API level: public)
 //
-int srdp_register_change(srdp_channel_t* channel,
-                         int dev,
-                         int reg,
-                         int pos,
-                         int len);
+int srdp_notify(srdp_channel_t* channel,
+                int dev,
+                int reg,
+                int pos,
+                int len);
 
 
 // Called by driver to let SRDP processing happen.  (API level: public)
