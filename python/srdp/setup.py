@@ -56,7 +56,7 @@ setup (
    zip_safe = False,
    entry_points = {
       'console_scripts': [
-         'wstest = srdp.srdptool:run'
+         'srdptool = srdp.srdptool:run'
       ]},
    ## http://pypi.python.org/pypi?%3Aaction=list_classifiers
    ##

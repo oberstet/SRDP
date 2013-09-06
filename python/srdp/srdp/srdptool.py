@@ -46,12 +46,12 @@ class SrdpToolOptions(usage.Options):
    optParameters = [
       ['mode', 'm', None, 'Mode, one of: %s [required]' % ', '.join(MODES)],
       ['eds', 'e', None, 'Path to directory with EDS files (recursively crawled).'],
-      ['baudrate', 'b', 115200, 'Serial port baudrate [default: 9600]'],
-      ['port', 'p', 11, 'Serial port to use (e.g. "11" for COM12 or "/dev/ttxACM0") [default: 11]'],
+      ['baudrate', 'b', 115200, 'Serial port baudrate.'],
+      ['port', 'p', 11, 'Serial port to use (e.g. "11" for COM12 or "/dev/ttxACM0")'],
    ]
 
    optFlags = [
-      ['debug', 'd', 'Debug output [default: off].']
+      ['debug', 'd', 'Activate debug output.']
    ]
 
    def postOptions(self):
@@ -117,13 +117,13 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
 
    @inlineCallbacks
    def run(self):
+      print "Retrieving adapter information .."
       try:
          uuid = yield self.getUuid()
          edsUri = yield self.getEdsUri()
          freemem = yield self.getFreeMem()
 
-         print "=" * 120
-         print "Adapter Information"
+         print "Adapter Information:"
          print
          print "UUID               : %s" % (binascii.hexlify(uuid))
          print "EDS URI            : %s (%d)" % (edsUri, len(edsUri))
@@ -141,14 +141,14 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
 
 
    def connectionMade(self):
-      if self._debug:
-         log.msg('Serial port connected.')
+      print 'Serial device connected.'
       reactor.callLater(1, self.run)
 
 
    def connectionLost(self, reason):
+      print 'Serial device disconnected.'
       if self._debug:
-         log.msg('Serial port connection lost: %s' % reason)
+         log.msg(reason)
       reactor.stop()
 
 
@@ -192,20 +192,24 @@ class SrdpToolRunner(object):
 
       elif self.mode == 'check':
 
-         baudrate = int(self.options['baudrate'])
-         port = self.options['port']
+         self.baudrate = int(self.options['baudrate'])
+         self.port = self.options['port']
          try:
-            port = int(port)
+            self.port = int(self.port)
          except:
             # on RaspberryPi, Serial-over-USB appears as /dev/ttyACM0
             pass
 
+         print "Loading EDS files from directory %s .." % self.edsDirectory
          self.edsDatabase = SrdpEdsDatabase(debug = self.debug)
          self.edsDatabase.loadFromDir(self.edsDirectory)
+         print "EDS database with %d objects initiated." % len(self.edsDatabase._edsByUri)
 
+         print "Connecting to serial port %s at %d baud .." % (self.port, self.baudrate)
          self.serialProtocol = SrdpToolHostProtocol(debug = self.debug)
          self.serialProtocol.runner = self
-         self.serialPort = SerialPortFix(self.serialProtocol, port, reactor, baudrate = baudrate)
+         self.serialPort = SerialPortFix(self.serialProtocol, self.port, reactor, baudrate = self.baudrate)
+
          return True
 
       else:

@@ -1,1 +1,1 @@
-recursive-include srpd/templates *
+recursive-include srdp/templates *

@@ -32,7 +32,7 @@ import crcmod
 import json, os, sys, re
 from pprint import pprint
 
-from twisted.internet import reactor
+#from twisted.internet import reactor
 from twisted.python import log
 from twisted.internet.protocol import Protocol
 from twisted.internet.defer import Deferred 
@@ -169,7 +169,8 @@ class SrdpProtocol(Protocol):
       if len(self._send_queue) > 0:
          d = self._send_queue.popleft()
          self.transport.write(d)
-         reactor.callLater(0.1, self._send)
+         #FIXME
+         #reactor.callLater(0.1, self._send)
       else:
          self._send_queue_triggered = False
 
