@@ -344,8 +344,8 @@ int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* 
                   return 1;
 
                case DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER_URATE:
-                  *((uint16_t*) data) = pot->getUpdateRate();
-                  return 2;
+                  *((float*) data) = pot->getUpdateRate();
+                  return 4;
 
                default:
                   return SRDP_ERR_NO_SUCH_REGISTER;

@@ -95,6 +95,7 @@ class SrdpToolOptions(usage.Options):
    optParameters = [
       ['mode', 'm', None, 'Mode, one of: %s [required]' % ', '.join(MODES)],
       ['show', 's', None, ''],
+      ['read', 'r', None, ''],
       ['list', 'l', None, ''],
       ['eds', 'e', None, 'Path to directory with EDS files (recursively crawled).'],
       ['baudrate', 'b', 115200, 'Serial port baudrate.'],
@@ -115,11 +116,55 @@ class SrdpToolOptions(usage.Options):
       if self['mode'] not in SrdpToolOptions.MODES:
          raise usage.UsageError, "invalid mode %s" % self['mode']
 
-      if self['mode'] in ['verify', 'check', 'list']:
+      if self['mode'] in ['verify', 'check', 'list', 'read']:
          if not self['eds']:
             raise usage.UsageError, "a directory with EDS files is required!"
 
 
+SRDP_STYPE_TO_PTYPE = {'int8': 'b',
+                       'uint8': 'b',
+                       'int16': 'h',
+                       'uint16': 'H',
+                       'int32': 'l',
+                       'uint32': 'L',
+                       'int64': 'q',
+                       'uint64': 'Q',
+                       'float': 'f',
+                       'double': 'd'
+                       }
+
+
+def parse(reg, data):
+   ## string
+   ##
+   if reg['type']  == 'char' and reg['count'] in ['uint8', 'uint16']:
+      if reg['count'] == 'uint8':
+         return data[1:].decode('utf8')
+      elif reg['count'] == 'uint16':
+         return data[2:].decode('utf8')
+
+   elif type(reg['type']) == list:
+      o = {}
+      td = '<'
+      for field in reg['type']:
+         td += SRDP_STYPE_TO_PTYPE[field['type']]
+      tval = list(struct.unpack(td, data))
+      for i in xrange(len(tval)):
+         o[str(reg['type'][i]['field'])] = tval[i]
+
+      return o
+
+   elif type(reg['count']) == int:
+      if reg['count'] == 1:
+         fmt = SRDP_STYPE_TO_PTYPE[reg['type']]
+         tval = struct.unpack(fmt, data)[0]
+         return tval
+      else:
+         if reg['type'] == 'uint8':
+            return '0x' + binascii.hexlify(data)
+
+   else:
+      return '?'
 
 
 class SrdpToolHostProtocol(SrdpHostProtocol):
@@ -349,6 +394,7 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
          #hwVersion = yield self.getHardwareVersion()
          #freemem = yield self.getFreeMem()
 
+         print
          print "Device Information:"
          print
          print "UUID               : %s" % (binascii.hexlify(uuid))
@@ -393,11 +439,49 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
 
 
 
+   @inlineCallbacks
+   def readDevice(self):
+      try:
+         device = int(self.runner.modeArg)
+         edsUri = yield self.getEdsUri(device)
+         eds = self.runner.edsDatabase.getEdsByUri(edsUri)
+
+         LINEFORMAT = ["r8", "l24", "l80"]
+
+         print
+         print tabify(["Index", "Path", "Value"], LINEFORMAT)
+         print tabify(None, LINEFORMAT)
+
+         for k in sorted(eds.registersByIndex.keys()):
+            reg = eds.registersByIndex[k]
+            if reg['access'] in ['read', 'readwrite']:
+               try:
+                  val = yield self.readRegister(device, reg['index'])
+               except Exception, e:
+                  print tabify([k, reg['path'], '- (%s)' % e.args[1]], LINEFORMAT)
+               else:
+                  val = parse(reg, val)
+                  print tabify([k, reg['path'], val], LINEFORMAT)
+
+         print
+
+      except Exception, e:
+         print "Error:", e
+      self.transport.loseConnection()
+
+
+
    def connectionMade(self):
       print 'Serial device connected.'
-      modeMap = {'list': self.listDevices, 'show': self.showDevice}
+
+      delay = 1
+      modeMap = {'list': self.listDevices,
+                 'show': self.showDevice,
+                 'read': self.readDevice}
+
       if modeMap.has_key(self.runner.mode):
-         reactor.callLater(1, modeMap[self.runner.mode])
+         print "Giving the device %s seconds to get ready .." % delay
+         reactor.callLater(delay, modeMap[self.runner.mode])
       else:
          raise Exception("mode '%s' not implemented" % self.runner.mode)
       #reactor.callLater(1, self.printDeviceEdsUris)
@@ -448,6 +532,9 @@ class SrdpToolRunner(object):
       elif self.options['list']:
          self.mode = 'list'
          self.modeArg = self.options['list']
+      elif self.options['read']:
+         self.mode = 'read'
+         self.modeArg = self.options['read']
       else:
          self.mode = None
          self.modeArg = None
@@ -468,7 +555,7 @@ class SrdpToolRunner(object):
          db.loadFromDir(self.edsDirectory)
          return False
 
-      elif self.mode in ['check', 'list', 'show']:
+      elif self.mode in ['check', 'list', 'show', 'read']:
          self.baudrate = int(self.options['baudrate'])
          self.port = self.options['port']
          try:

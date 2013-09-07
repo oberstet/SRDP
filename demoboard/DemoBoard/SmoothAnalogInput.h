@@ -38,8 +38,8 @@ class SmoothAnalogInput {
         void setWatched(bool watched) { _watched = watched; };
         bool isWatched() const { return _watched; };
 
-        void setUpdateRate(int rate) { _updateRate = rate; };
-        int getUpdateRate() const { return _updateRate; };
+        void setUpdateRate(float rate) { _updateRate = rate; };
+        float getUpdateRate() const { return _updateRate; };
     private:
         int _samples[SMOOTH_ANALOG_INPUT_SIZE];
         int _pin;
@@ -50,7 +50,7 @@ class SmoothAnalogInput {
         int _last;
         unsigned long _sampleTime;
         bool _watched;
-        int _updateRate;
+        float _updateRate;
 };
 
 #endif // SMOOTHANALOGINPUT_H
