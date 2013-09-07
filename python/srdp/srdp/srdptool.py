@@ -362,20 +362,29 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
          print "Register Map       : %d Registers" % len(eds.registersByIndex)
          print
 
-         LINEFORMAT = ["r8", "l30", "l10", "l8", "l8", "l8", "l40"]
+         LINEFORMAT = ["r8", "l24", "l10", "l8", "l8", "l8", "l10", "l40"]
 
-         print tabify(["Index", "Path", "Access", "Optional", "Type", "Count", "Description"], LINEFORMAT)
+         print tabify(["Index", "Path", "Access", "Optional", "Count", "Type", "Component", "Description"], LINEFORMAT)
          print tabify(None, LINEFORMAT)
 
          for k in sorted(eds.registersByIndex.keys()):
             reg = eds.registersByIndex[k]
+            if type(reg['type']) == list:
+               rtype = 'dict:'
+            else:
+               rtype = reg['type']
             print tabify([reg['index'],
                           reg['path'],
                           reg['access'],
                           reg['optional'],
-                          reg['type'],
                           reg['count'],
+                          rtype,
+                          "",
                           reg['desc']], LINEFORMAT)
+            if rtype == 'dict:':
+               for att in reg['type']:
+                  print tabify(["", "", "", "", "", "  " + att["type"], att["field"], att["desc"]], LINEFORMAT)
+
          print
 
       except Exception, e:
