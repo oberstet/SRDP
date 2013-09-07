@@ -252,11 +252,14 @@ void process_incoming_frame (srdp_channel_t* channel) {
             // register read
             //
             case SRDP_OP_READ:
+            /*
                if (dev == 0 && reg < 1024 && reg > 2) {
                   // driver builtin register
                   res = driver_register_read(channel, dev, reg, pos, len, channel->out.data);
                }
-               else if (channel->register_read) {
+               else
+               */
+               if (channel->register_read) {
                   res = channel->register_read(channel->userdata, dev, reg, pos, len, channel->out.data);
                } else {
                   // FIXME: send error

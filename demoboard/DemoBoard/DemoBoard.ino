@@ -48,52 +48,78 @@
 #define PIN_BTN1    22
 #define PIN_BTN2    23
 
-// URIs of the driver and device electronic datasheet (EDS)
+// EDS URI for the adapter
 //
-#define URI_ADAPTER_EDS "http://eds.tavendo.com/adapter/arduino-demoboard"
-#define URI_DEVICE_EDS "http://eds.device.tavendo.de/arduino/demoboard"
+#define ADAPTER_EDS_URI    "http://eds.tavendo.com/adapter/arduino-demoboard"
 
-// UUIDs of the driver and device
+// Optional adapter information
 //
-static const uint8_t UUID_ADAPTER[] = {0x6B, 0x32, 0xA0, 0x7A, 0x7F, 0xC8, 0x47, 0xBB, 0x9D, 0x81, 0xF1, 0x41, 0x55, 0x0F, 0x60, 0x4F};
-static const uint8_t UUID_DEVICE[] = {0x93, 0xA0, 0x1C, 0x71, 0x03, 0xFC, 0x4D, 0x9E, 0x85, 0x2E, 0xBD, 0x2D, 0x8C, 0x82, 0x4D, 0xE8};
+#define ADAPTER_HW_VERSION "Arduino Mega 2560"
+#define ADAPTER_SW_VERSION "V1.0"
 
-
-// Indices of SRDP Registers the Demoboard will expose
+// EDS URIs for the connected devices
 //
-#define IDX_DEV               1
+#define DEVICE1_EDS_URI "http://eds.tavendo.com/device/arduino-rgb-led"
+#define DEVICE2_EDS_URI "http://eds.tavendo.com/device/arduino-combocontrol"
+#define DEVICE3_EDS_URI "http://eds.tavendo.com/device/arduino-combocontrol"
 
-// Custom registers for driver (aka "device 0")
+// UUID of the adapter
 //
-#define IDX_REG_FREE_RAM      1024
+static const uint8_t ADAPTER_UUID[] = {0xa4, 0x10, 0x4a, 0x89, 0x8d, 0xf1, 0x46, 0xe5, 0xa6, 0x4c, 0x3b, 0xc7, 0x37, 0xdf, 0xd2, 0xf4};
 
-// Registers of device 1 (our demoboard hardware)
+// UUIDs of the connected devices
 //
-#define IDX_REG_ID            1
-#define IDX_REG_EDS           2
+static const uint8_t DEVICE1_UUID[] = {0xee, 0xce, 0x84, 0x0d, 0x24, 0x46, 0x49, 0x98, 0x85, 0x23, 0xbb, 0xd8, 0x4c, 0x78, 0x1f, 0x93};
+static const uint8_t DEVICE2_UUID[] = {0xc0, 0x1a, 0xfa, 0x3d, 0x46, 0x63, 0x4e, 0x82, 0xbb, 0xec, 0xf1, 0x7c, 0x87, 0xa1, 0x16, 0x2f};
+static const uint8_t DEVICE3_UUID[] = {0x1f, 0xfd, 0xf7, 0xdb, 0x1d, 0xa5, 0x40, 0xc9, 0xa1, 0x30, 0xab, 0xe6, 0xf2, 0x70, 0x0f, 0x40};
 
-#define IDX_REG_LED1          1024
-#define IDX_REG_LED2          1025
-#define IDX_REG_LED3          1026
+// Device index of adapter
+//
+#define ADAPTER_DEVICE_INDEX     1
 
-#define IDX_REG_BTN1          1027
-#define IDX_REG_BTN1_WATCH    1028
+// Device indices of devices
+//
+#define DEVICE1_DEVICE_INDEX     2
+#define DEVICE2_DEVICE_INDEX     3
+#define DEVICE3_DEVICE_INDEX     4
 
-#define IDX_REG_BTN2          1029
-#define IDX_REG_BTN2_WATCH    1030
+// Standard registers for adapter
+//
+#define ADAPTER_REGISTER_INDEX_UUID          1
+#define ADAPTER_REGISTER_INDEX_EDS           2
+#define ADAPTER_REGISTER_INDEX_HW_VERSION    3
+#define ADAPTER_REGISTER_INDEX_SW_VERSION    4
+#define ADAPTER_REGISTER_INDEX_DEVICES       5
 
-#define IDX_REG_POT1          1031
-#define IDX_REG_POT1_MAX      1032
-#define IDX_REG_POT1_WATCH    1033
-#define IDX_REG_POT1_URATE    1034
+// Custom registers for adapter
+//
+#define ADAPTER_REGISTER_INDEX_FREEMEM       1024
+#define ADAPTER_REGISTER_INDEX_USERDATA      1025
+#define ADAPTER_REGISTER_INDEX_USERDATA_SIZE 64  // MUST BE <= SRDP_FRAME_DATA_MAX_LEN
 
-#define IDX_REG_POT2          1035
-#define IDX_REG_POT2_MAX      1036
-#define IDX_REG_POT2_WATCH    1037
-#define IDX_REG_POT2_URATE    1038
+// Standard registers for devices
+//
+#define DEVICE_REGISTER_INDEX_UUID              1
+#define DEVICE_REGISTER_INDEX_EDS               2
+#define DEVICE_REGISTER_INDEX_HW_VERSION        3
+#define DEVICE_REGISTER_INDEX_SW_VERSION        4
 
-#define IDX_REG_USERSTORE     1039
-#define SIZ_REG_USERSTORE     64    // MUST BE <= SRDP_FRAME_DATA_MAX_LEN
+// Device registers for "Color Light"
+//
+#define DEVICE_REGISTER_INDEX_COLOR_LIGHT             1024
+#define DEVICE_REGISTER_INDEX_COLOR_LIGHT_FLASHRATE   1025
+
+// Device registers for "Combo Control"
+//
+#define DEVICE_REGISTER_INDEX_COMBO_CONTROL_LIGHT           1024
+#define DEVICE_REGISTER_INDEX_COMBO_CONTROL_BUTTON          1025
+#define DEVICE_REGISTER_INDEX_COMBO_CONTROL_BUTTON_WATCH    1026
+#define DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER          1027
+#define DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER_MAX      1028
+#define DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER_WATCH    1029
+#define DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER_URATE    1030
+#define DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER_SMOOTH   1031
+
 
 // Wrappers for hardware components
 //
@@ -162,129 +188,104 @@ ssize_t transport_write (void* userdata, const uint8_t* data, size_t len) {
 //
 int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* data) {
 
-   if (dev == IDX_DEV) {
+   switch (dev) {
 
-      switch (reg) {
+      case ADAPTER_DEVICE_INDEX:
 
-         // Device UUID
-         //
-         case IDX_REG_ID:
-            memcpy(data, UUID_DEVICE, sizeof(UUID_DEVICE));
-            return sizeof(UUID_DEVICE);
+         switch (reg) {
 
-         // Device EDS
-         //
-         case IDX_REG_EDS:
-            strncpy((char*) data, URI_DEVICE_EDS, sizeof(URI_DEVICE_EDS));
-            return sizeof(URI_DEVICE_EDS);
+            case ADAPTER_REGISTER_INDEX_UUID:
+               memcpy(data, ADAPTER_UUID, sizeof(ADAPTER_UUID));
+               return sizeof(ADAPTER_UUID);
 
-         // Buttons
-         //
-         case IDX_REG_BTN1:
-            *((uint32_t*) (data + 0)) = btn1.getTime();
-            *((uint8_t*) (data + 4)) = btn1.getState();
-            return 5;
-         case IDX_REG_BTN2:
-            *((uint32_t*) (data + 0)) = btn2.getTime();
-            *((uint8_t*) (data + 4)) = btn2.getState();
-            return 5;
+            case ADAPTER_REGISTER_INDEX_EDS:
+               *((uint16_t*) (data + 0)) = sizeof(ADAPTER_EDS_URI) - 1;
+               strncpy((char*) (data + 2), ADAPTER_EDS_URI, sizeof(ADAPTER_EDS_URI) - 1);
+               return 2 + sizeof(ADAPTER_EDS_URI) - 1;
 
-         // Potis
-         //
-         case IDX_REG_POT1:
-            *((uint32_t*) (data + 0)) = pot1.getTime();
-            *((uint16_t*) (data + 4)) = pot1.getState();
-            return 6;
-         case IDX_REG_POT2:
-            *((uint32_t*) (data + 0)) = pot2.getTime();
-            *((uint16_t*) (data + 4)) = pot2.getState();
-            return 6;
+            case ADAPTER_REGISTER_INDEX_HW_VERSION:
+               *((uint16_t*) (data + 0)) = sizeof(ADAPTER_HW_VERSION) - 1;
+               strncpy((char*) (data + 2), ADAPTER_HW_VERSION, sizeof(ADAPTER_HW_VERSION) - 1);
+               return 2 + sizeof(ADAPTER_HW_VERSION) - 1;
 
-         // Poti 1/2, Button 1/2 : #watch
-         //
-         case IDX_REG_POT1_WATCH:
-            *((uint8_t*) data) = pot1.isWatched();
-            return 1;
-         case IDX_REG_POT2_WATCH:
-            *((uint8_t*) data) = pot2.isWatched();
-            return 1;
-         case IDX_REG_BTN1_WATCH:
-            *((uint8_t*) data) = btn1.isWatched();
-            return 1;
-         case IDX_REG_BTN2_WATCH:
-            *((uint8_t*) data) = btn2.isWatched();
-            return 1;
+            case ADAPTER_REGISTER_INDEX_SW_VERSION:
+               *((uint16_t*) (data + 0)) = sizeof(ADAPTER_SW_VERSION) - 1;
+               strncpy((char*) (data + 2), ADAPTER_SW_VERSION, sizeof(ADAPTER_SW_VERSION) - 1);
+               return 2 + sizeof(ADAPTER_SW_VERSION) - 1;
 
-         // Poti 1/2 : #max
-         //
-         case IDX_REG_POT1_MAX:
-            *((uint16_t*) data) = pot1.getMax();
-            return 2;
-         case IDX_REG_POT2_MAX:
-            *((uint16_t*) data) = pot2.getMax();
-            return 2;
+            case ADAPTER_REGISTER_INDEX_DEVICES:
+               *((uint16_t*) (data + 0)) = DEVICE1_DEVICE_INDEX;
+               *((uint16_t*) (data + 2)) = DEVICE2_DEVICE_INDEX;
+               *((uint16_t*) (data + 4)) = DEVICE3_DEVICE_INDEX;
+               return 6;
 
-         // Poti 1/2 : #updateRate
-         //
-         case IDX_REG_POT1_URATE:
-            *((uint16_t*) data) = pot1.getUpdateRate();
-            return 2;
-         case IDX_REG_POT2_URATE:
-            *((uint16_t*) data) = pot2.getUpdateRate();
-            return 2;
+            case ADAPTER_REGISTER_INDEX_FREEMEM:
+               *((uint32_t*) data) = freeRam();
+               return 4;
 
-         // persistent register (type "B*" - a vector of uint8s)
-         //
-         case IDX_REG_USERSTORE:
-            if (len == 0) {
-               *((uint16_t*) data) = SIZ_REG_USERSTORE;
-               return 2;
+            case ADAPTER_REGISTER_INDEX_USERDATA:
+               if (len == 0) {
+                  *((uint16_t*) data) = ADAPTER_REGISTER_INDEX_USERDATA_SIZE;
+                  return 2;
+               }
+               else if (pos + len <= ADAPTER_REGISTER_INDEX_USERDATA_SIZE) {
+                  readEEPROM(0 + pos, data, len);
+                  return len;
+               } else {
+                  return SRDP_ERR_INVALID_REG_POSLEN;
+               }
+
+            default:
+               return SRDP_ERR_NO_SUCH_REGISTER;
+         }
+
+      case DEVICE1_DEVICE_INDEX:
+         return SRDP_ERR_INVALID_REG_OP;
+
+      case DEVICE2_DEVICE_INDEX:
+      case DEVICE3_DEVICE_INDEX:
+         {
+            Button* btn = dev == DEVICE2_DEVICE_INDEX ? &btn1 : &btn2;
+            SmoothAnalogInput* pot = dev == DEVICE2_DEVICE_INDEX ? &pot1 : &pot2;
+
+            switch (reg) {
+
+               case DEVICE_REGISTER_INDEX_COMBO_CONTROL_LIGHT:
+                  return SRDP_ERR_INVALID_REG_OP;
+
+               case DEVICE_REGISTER_INDEX_COMBO_CONTROL_BUTTON:
+                  *((uint32_t*) (data + 0)) = btn->getTime();
+                  *((uint8_t*) (data + 4)) = btn->getState();
+                  return 5;
+
+               case DEVICE_REGISTER_INDEX_COMBO_CONTROL_BUTTON_WATCH:
+                  *((uint8_t*) data) = btn->isWatched();
+                  return 1;
+
+               case DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER:
+                  *((uint32_t*) (data + 0)) = pot->getTime();
+                  *((uint16_t*) (data + 4)) = pot->getState();
+                  return 6;
+
+               case DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER_MAX:
+                  *((uint16_t*) data) = pot->getMax();
+                  return 2;
+
+               case DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER_WATCH:
+                  *((uint8_t*) data) = pot->isWatched();
+                  return 1;
+
+               case DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER_URATE:
+                  *((uint16_t*) data) = pot->getUpdateRate();
+                  return 2;
+
+               default:
+                  return SRDP_ERR_NO_SUCH_REGISTER;
             }
-            else if (pos + len <= SIZ_REG_USERSTORE) {
-               readEEPROM(0 + pos, data, len);
-               return len;
-            } else {
-               return SRDP_ERR_INVALID_REG_POSLEN;
-            }
+         }
 
-         case IDX_REG_LED1:
-         case IDX_REG_LED2:
-         case IDX_REG_LED3:
-            return SRDP_ERR_INVALID_REG_OP;
-
-         default:
-            return SRDP_ERR_NO_SUCH_REGISTER;
-      }
-   } else if (dev == 0) {
-
-      // custom registers for driver (aka "device 0")
-      //
-      switch (reg) {
-
-         // Device UUID
-         //
-         case IDX_REG_ID:
-            memcpy(data, UUID_ADAPTER, sizeof(UUID_ADAPTER));
-            return sizeof(UUID_ADAPTER);
-
-         // Device EDS
-         //
-         case IDX_REG_EDS:
-            strncpy((char*) data, URI_ADAPTER_EDS, sizeof(URI_ADAPTER_EDS));
-            return sizeof(URI_ADAPTER_EDS);
-
-         // current free memory
-         //
-         case IDX_REG_FREE_RAM:
-            *((uint32_t*) data) = freeRam();
-            return 4;
-
-         default:
-            return SRDP_ERR_NO_SUCH_REGISTER;
-      }
-
-   } else {
-      return SRDP_ERR_NO_SUCH_DEVICE;
+      default:
+         return SRDP_ERR_NO_SUCH_DEVICE;
    }
 }
 
@@ -293,81 +294,81 @@ int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* 
 //
 int register_write(void* userdata, int dev, int reg, int pos, int len, const uint8_t* data) {
 
-   if (dev == IDX_DEV) {
+   switch (dev) {
 
-      switch (reg) {
-         
-         // LED 1 (red)
-         // LED 2 (green)
-         //
-         case IDX_REG_LED1:
-            digitalWrite(IDX_REG_LED1, data[0] ? HIGH : LOW);
-            return 1;
+      case ADAPTER_DEVICE_INDEX:
+         switch (reg) {
 
-         case IDX_REG_LED2:
-            digitalWrite(IDX_REG_LED2, data[0] ? HIGH : LOW);
-            return 1;
+            case ADAPTER_REGISTER_INDEX_UUID:
+            case ADAPTER_REGISTER_INDEX_EDS:
+            case ADAPTER_REGISTER_INDEX_FREEMEM:
+               return SRDP_ERR_INVALID_REG_OP;
 
-         // LED 3 (RGB)
-         //
-         case IDX_REG_LED3:
-            led3.write(data[0], data[1], data[2]);
-            return 3;
+            case ADAPTER_REGISTER_INDEX_USERDATA:
+               if (pos + len <= ADAPTER_REGISTER_INDEX_USERDATA_SIZE) {
+                  writeEEPROM(0 + pos, data, len);
+                  return len;
+               } else {
+                  return SRDP_ERR_INVALID_REG_POSLEN;
+               }
 
-         // Poti 1/2, Button 1/2 : #watch
-         //
-         case IDX_REG_POT1_WATCH:
-            pot1.setWatched(data[0] != 0);
-            return 1;
-         case IDX_REG_POT2_WATCH:
-            pot2.setWatched(data[0] != 0);
-            return 1;
-         case IDX_REG_BTN1_WATCH:
-            btn1.setWatched(data[0] != 0);
-            return 1;
-         case IDX_REG_BTN2_WATCH:
-            btn2.setWatched(data[0] != 0);
-            return 1;
+            default:
+               return SRDP_ERR_NO_SUCH_REGISTER;
+         }
 
-         // Poti 1/2 : #max
-         //
-         case IDX_REG_POT1_MAX:
-            pot1.scale(0, *((const uint16_t*) data));
-            return 2;
-         case IDX_REG_POT2_MAX:
-            pot2.scale(0, *((const uint16_t*) data));
-            return 2;
+      case DEVICE1_DEVICE_INDEX:
+         switch (reg) {
 
-         // Poti 1/2 : #updateRate
-         //
-         case IDX_REG_POT1_URATE:
-            pot1.setUpdateRate(*((const uint16_t*) data));
-            return 2;
-         case IDX_REG_POT2_URATE:
-            pot2.setUpdateRate(*((const uint16_t*) data));
-            return 2;
+            case DEVICE_REGISTER_INDEX_COLOR_LIGHT:
+               led3.write(data[0], data[1], data[2]);
+               return 3;
 
-         // persistent register
-         //
-         case IDX_REG_USERSTORE:
-            if (pos + len <= SIZ_REG_USERSTORE) {
-               writeEEPROM(0 + pos, data, len);
-               return len;
-            } else {
-               return SRDP_ERR_INVALID_REG_POSLEN;
+            default:
+               return SRDP_ERR_NO_SUCH_REGISTER;
+         }
+
+      case DEVICE2_DEVICE_INDEX:
+      case DEVICE3_DEVICE_INDEX:
+         {
+            Button* btn = dev == DEVICE2_DEVICE_INDEX ? &btn1 : &btn2;
+            SmoothAnalogInput* pot = dev == DEVICE2_DEVICE_INDEX ? &pot1 : &pot2;
+            int pin = dev == DEVICE2_DEVICE_INDEX ? PIN_LED1 : PIN_LED2;
+
+            switch (reg) {
+
+               case DEVICE_REGISTER_INDEX_COMBO_CONTROL_LIGHT:
+                  digitalWrite(pin, data[0] ? HIGH : LOW);
+                  return 1;
+
+               case DEVICE_REGISTER_INDEX_COMBO_CONTROL_BUTTON:
+                  return SRDP_ERR_INVALID_REG_OP;
+
+               case DEVICE_REGISTER_INDEX_COMBO_CONTROL_BUTTON_WATCH:
+                  btn->setWatched(data[0] != 0);
+                  return 1;
+
+               case DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER:
+                  return SRDP_ERR_INVALID_REG_OP;
+
+               case DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER_MAX:
+                  pot->scale(0, *((const uint16_t*) data));
+                  return 2;
+
+               case DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER_WATCH:
+                  pot->setWatched(data[0] != 0);
+                  return 1;
+
+               case DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER_URATE:
+                  pot->setUpdateRate(*((const uint16_t*) data));
+                  return 2;
+
+               default:
+                  return SRDP_ERR_NO_SUCH_REGISTER;
             }
+         }
 
-         case IDX_REG_BTN1:         
-         case IDX_REG_BTN2:
-         case IDX_REG_POT1:
-         case IDX_REG_POT2:
-            return SRDP_ERR_INVALID_REG_OP;
-
-         default:
-            return SRDP_ERR_NO_SUCH_REGISTER;
-      }
-   } else {
-      return SRDP_ERR_NO_SUCH_DEVICE;
+      default:
+         return SRDP_ERR_NO_SUCH_DEVICE;
    }
 }
 
@@ -428,21 +429,21 @@ void loop() {
    //
    if (btn1.process() && btn1.isWatched()) {
       // when button changed, trigger sending of SRDP change frame
-      srdp_notify(&channel, IDX_DEV, IDX_REG_BTN1, 0, 0);
+      srdp_notify(&channel, DEVICE2_DEVICE_INDEX, DEVICE_REGISTER_INDEX_COMBO_CONTROL_BUTTON, 0, 0);
    }
 
    if (btn2.process() && btn2.isWatched()) {
-      srdp_notify(&channel, IDX_DEV, IDX_REG_BTN2, 0, 0);
+      srdp_notify(&channel, DEVICE3_DEVICE_INDEX, DEVICE_REGISTER_INDEX_COMBO_CONTROL_BUTTON, 0, 0);
    }
 
    // process potis
    //
    if (pot1.process() && pot1.isWatched()) {
-      srdp_notify(&channel, IDX_DEV, IDX_REG_POT1, 0, 0);
+      srdp_notify(&channel, DEVICE2_DEVICE_INDEX, DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER, 0, 0);
    }
 
    if (pot2.process() && pot2.isWatched()) {
-      srdp_notify(&channel, IDX_DEV, IDX_REG_POT2, 0, 0);
+      srdp_notify(&channel, DEVICE3_DEVICE_INDEX, DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER, 0, 0);
    }
 
    // limit update frequency

@@ -16,7 +16,7 @@
 ##
 ###############################################################################
 
-import sys, os, struct, binascii
+import sys, os, struct, binascii, uuid
 from pprint import pprint
 
 if sys.platform == 'win32':
@@ -38,10 +38,17 @@ from srdp import SrdpEdsDatabase, SrdpHostProtocol, SrdpFrameHeader
 
 
 
+def splitlen(seq, length):
+   """
+   Splits a string into fixed size parts.
+   """
+   return [seq[i:i+length] for i in range(0, len(seq), length)]
+
+
 class SrdpToolOptions(usage.Options):
 
    # Available modes, specified with the --mode (or short: -m) flag.
-   MODES = ['verify', 'check']
+   MODES = ['verify', 'check', 'uuid']
 
    optParameters = [
       ['mode', 'm', None, 'Mode, one of: %s [required]' % ', '.join(MODES)],
@@ -62,8 +69,9 @@ class SrdpToolOptions(usage.Options):
       if self['mode'] not in SrdpToolOptions.MODES:
          raise usage.UsageError, "invalid mode %s" % self['mode']
 
-      if not self['eds']:
-         raise usage.UsageError, "a directory with EDS files is required!"
+      if self['mode'] in ['verify', 'check']:
+         if not self['eds']:
+            raise usage.UsageError, "a directory with EDS files is required!"
 
 
 class SrdpException(Exception):
@@ -80,13 +88,16 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
 
    IDX_REG_ID = 1
    IDX_REG_EDS = 2
+   IDX_REG_HW_VERSION = 3
+   IDX_REG_SW_VERSION = 4
+   IDX_REG_DEVICES = 5
    IDX_REG_FREE_RAM = 1024
 
 
    @inlineCallbacks
    def getFreeMem(self):
       try:
-         res = yield self.readRegister(0, self.IDX_REG_FREE_RAM)
+         res = yield self.readRegister(1, self.IDX_REG_FREE_RAM)
       except Exception, e:
          raise SrdpException(e)
       else:
@@ -97,7 +108,7 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
    @inlineCallbacks
    def getUuid(self):
       try:
-         res = yield self.readRegister(0, self.IDX_REG_ID)
+         res = yield self.readRegister(1, self.IDX_REG_ID)
       except Exception, e:
          raise SrdpException(e)
       else:
@@ -107,12 +118,42 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
    @inlineCallbacks
    def getEdsUri(self):
       try:
-         res = yield self.readRegister(0, self.IDX_REG_EDS)
+         res = yield self.readRegister(1, self.IDX_REG_EDS)
       except Exception, e:
          raise SrdpException(e)
       else:
-         ## FIXME: need to cut of the \0 byte inserted by C
-         returnValue(res[:-1])
+         returnValue(res[2:])
+
+
+   @inlineCallbacks
+   def getHardwareVersion(self):
+      try:
+         res = yield self.readRegister(1, self.IDX_REG_HW_VERSION)
+      except Exception, e:
+         raise SrdpException(e)
+      else:
+         returnValue(res[2:])
+
+
+   @inlineCallbacks
+   def getSoftwareVersion(self):
+      try:
+         res = yield self.readRegister(1, self.IDX_REG_SW_VERSION)
+      except Exception, e:
+         raise SrdpException(e)
+      else:
+         returnValue(res[2:])
+
+
+   @inlineCallbacks
+   def getDevices(self):
+      try:
+         res = yield self.readRegister(1, self.IDX_REG_DEVICES)
+      except Exception, e:
+         raise SrdpException(e)
+      else:
+         val = list(struct.unpack("<HHH", res))
+         returnValue(val)
 
 
    @inlineCallbacks
@@ -121,12 +162,18 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
       try:
          uuid = yield self.getUuid()
          edsUri = yield self.getEdsUri()
+         devices = yield self.getDevices()
+         swVersion = yield self.getSoftwareVersion()
+         hwVersion = yield self.getHardwareVersion()
          freemem = yield self.getFreeMem()
 
          print "Adapter Information:"
          print
          print "UUID               : %s" % (binascii.hexlify(uuid))
          print "EDS URI            : %s (%d)" % (edsUri, len(edsUri))
+         print "Harware Version    : %s" % hwVersion
+         print "Software Version   : %s" % swVersion
+         print "Devices            : %s" % (str(devices))
          print "Free memory (bytes): %d" % (freemem)
 
          eds = self.runner.edsDatabase.getEdsByUri(edsUri)
@@ -185,13 +232,19 @@ class SrdpToolRunner(object):
 
       
    def startService(self):
-      if self.mode == 'verify':
+      if self.mode == 'uuid':
+         u = uuid.uuid4()
+         print u
+         print u.hex
+         print '{' + ', '.join(['0x' + x for x in splitlen(u.hex, 2)]) + '}'
+         return False
+
+      elif self.mode == 'verify':
          db = SrdpEdsDatabase()
          db.loadFromDir(self.edsDirectory)
          return False
 
       elif self.mode == 'check':
-
          self.baudrate = int(self.options['baudrate'])
          self.port = self.options['port']
          try:
