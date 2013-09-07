@@ -107,7 +107,7 @@ static const uint8_t DEVICE3_UUID[] = {0x1f, 0xfd, 0xf7, 0xdb, 0x1d, 0xa5, 0x40,
 // Device registers for "Color Light"
 //
 #define DEVICE_REGISTER_INDEX_COLOR_LIGHT             1024
-#define DEVICE_REGISTER_INDEX_COLOR_LIGHT_FLASHRATE   1025
+//#define DEVICE_REGISTER_INDEX_COLOR_LIGHT_FLASHRATE   1025
 
 // Device registers for "Combo Control"
 //
@@ -118,7 +118,7 @@ static const uint8_t DEVICE3_UUID[] = {0x1f, 0xfd, 0xf7, 0xdb, 0x1d, 0xa5, 0x40,
 #define DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER_MAX      1028
 #define DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER_WATCH    1029
 #define DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER_URATE    1030
-#define DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER_SMOOTH   1031
+//#define DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER_SMOOTH   1031
 
 
 // Wrappers for hardware components
@@ -191,38 +191,63 @@ int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* 
    switch (dev) {
 
       case ADAPTER_DEVICE_INDEX:
-
          switch (reg) {
 
+            // mandatory adapter register with adapter UUID
+            //
             case ADAPTER_REGISTER_INDEX_UUID:
                memcpy(data, ADAPTER_UUID, sizeof(ADAPTER_UUID));
                return sizeof(ADAPTER_UUID);
 
+            // mandatory adapter register with adapter EDS URI
+            //
             case ADAPTER_REGISTER_INDEX_EDS:
-               *((uint16_t*) (data + 0)) = sizeof(ADAPTER_EDS_URI) - 1;
-               strncpy((char*) (data + 2), ADAPTER_EDS_URI, sizeof(ADAPTER_EDS_URI) - 1);
-               return 2 + sizeof(ADAPTER_EDS_URI) - 1;
+               {
+                  // strings are prefixed with their length ..
+                  size_t slen = sizeof(ADAPTER_EDS_URI) - 1;
+                  *((uint16_t*) (data + 0)) = slen;
+                  strncpy((char*) (data + 2), ADAPTER_EDS_URI, slen);
+                  return 2 + slen;
+               }
 
+            // optional adapter register with hardware version
+            //
             case ADAPTER_REGISTER_INDEX_HW_VERSION:
-               *((uint16_t*) (data + 0)) = sizeof(ADAPTER_HW_VERSION) - 1;
-               strncpy((char*) (data + 2), ADAPTER_HW_VERSION, sizeof(ADAPTER_HW_VERSION) - 1);
-               return 2 + sizeof(ADAPTER_HW_VERSION) - 1;
+               {
+                  size_t slen = sizeof(ADAPTER_HW_VERSION) - 1;
+                  *((uint16_t*) (data + 0)) = slen;
+                  strncpy((char*) (data + 2), ADAPTER_HW_VERSION, slen);
+                  return 2 + slen;
+               }
 
+            // optional adapter register with software version
+            //
             case ADAPTER_REGISTER_INDEX_SW_VERSION:
-               *((uint16_t*) (data + 0)) = sizeof(ADAPTER_SW_VERSION) - 1;
-               strncpy((char*) (data + 2), ADAPTER_SW_VERSION, sizeof(ADAPTER_SW_VERSION) - 1);
-               return 2 + sizeof(ADAPTER_SW_VERSION) - 1;
+               {
+                  size_t slen = sizeof(ADAPTER_SW_VERSION) - 1;
+                  *((uint16_t*) (data + 0)) = slen;
+                  strncpy((char*) (data + 2), ADAPTER_SW_VERSION, slen);
+                  return 2 + slen;
+               }
 
+            // mandatory adapter register with list of connected devices
+            //
             case ADAPTER_REGISTER_INDEX_DEVICES:
-               *((uint16_t*) (data + 0)) = DEVICE1_DEVICE_INDEX;
-               *((uint16_t*) (data + 2)) = DEVICE2_DEVICE_INDEX;
-               *((uint16_t*) (data + 4)) = DEVICE3_DEVICE_INDEX;
-               return 6;
+               // for our board, the list of connected devices is fixed/static
+               *((uint16_t*) (data + 0)) = 3;
+               *((uint16_t*) (data + 2)) = DEVICE1_DEVICE_INDEX;
+               *((uint16_t*) (data + 4)) = DEVICE2_DEVICE_INDEX;
+               *((uint16_t*) (data + 6)) = DEVICE3_DEVICE_INDEX;
+               return 8;
 
+            // custom adapter register: current free RAM
+            //
             case ADAPTER_REGISTER_INDEX_FREEMEM:
                *((uint32_t*) data) = freeRam();
                return 4;
 
+            // custom adapter register: arbitrary, persistent user data
+            //
             case ADAPTER_REGISTER_INDEX_USERDATA:
                if (len == 0) {
                   *((uint16_t*) data) = ADAPTER_REGISTER_INDEX_USERDATA_SIZE;
@@ -240,15 +265,58 @@ int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* 
          }
 
       case DEVICE1_DEVICE_INDEX:
-         return SRDP_ERR_INVALID_REG_OP;
+         switch (reg) {
+
+            // mandatory device register with device UUID
+            //
+            case DEVICE_REGISTER_INDEX_UUID:
+               memcpy(data, DEVICE1_UUID, sizeof(DEVICE1_UUID));
+               return sizeof(DEVICE1_UUID);
+
+            // mandatory device register with device EDS URI
+            //
+            case DEVICE_REGISTER_INDEX_EDS:
+               {
+                  // strings are prefixed with their length ..
+                  size_t slen = sizeof(DEVICE1_EDS_URI) - 1;
+                  *((uint16_t*) (data + 0)) = slen;
+                  strncpy((char*) (data + 2), DEVICE1_EDS_URI, slen);
+                  return 2 + slen;
+               }
+
+            case DEVICE_REGISTER_INDEX_COLOR_LIGHT:
+               return SRDP_ERR_INVALID_REG_OP;
+
+            default:
+               return SRDP_ERR_NO_SUCH_REGISTER;
+         }
 
       case DEVICE2_DEVICE_INDEX:
       case DEVICE3_DEVICE_INDEX:
          {
-            Button* btn = dev == DEVICE2_DEVICE_INDEX ? &btn1 : &btn2;
-            SmoothAnalogInput* pot = dev == DEVICE2_DEVICE_INDEX ? &pot1 : &pot2;
+            Button* btn             = dev == DEVICE2_DEVICE_INDEX ? &btn1 : &btn2;
+            SmoothAnalogInput* pot  = dev == DEVICE2_DEVICE_INDEX ? &pot1 : &pot2;
+            const uint8_t* uuid     = dev == DEVICE2_DEVICE_INDEX ? DEVICE2_UUID : DEVICE3_UUID;
+            const char* edsUri      = dev == DEVICE2_DEVICE_INDEX ? DEVICE2_EDS_URI : DEVICE3_EDS_URI;
 
             switch (reg) {
+
+               // mandatory device register with device UUID
+               //
+               case DEVICE_REGISTER_INDEX_UUID:
+                  memcpy(data, uuid, 16);
+                  return 16;
+
+               // mandatory device register with device EDS URI
+               //
+               case DEVICE_REGISTER_INDEX_EDS:
+                  {
+                     // strings are prefixed with their length ..
+                     size_t slen = strlen(edsUri);
+                     *((uint16_t*) (data + 0)) = slen;
+                     strncpy((char*) (data + 2), edsUri, slen);
+                     return 2 + slen;
+                  }
 
                case DEVICE_REGISTER_INDEX_COMBO_CONTROL_LIGHT:
                   return SRDP_ERR_INVALID_REG_OP;

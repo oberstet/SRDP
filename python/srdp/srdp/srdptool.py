@@ -31,7 +31,7 @@ print "Using Twisted reactor", reactor.__class__
 print
 
 from twisted.python import log, usage
-from twisted.internet.defer import Deferred, returnValue, inlineCallbacks
+from twisted.internet.defer import Deferred, DeferredList, returnValue, inlineCallbacks
 from twisted.internet.serialport import SerialPort
 
 from srdp import SrdpEdsDatabase, SrdpHostProtocol, SrdpFrameHeader
@@ -106,19 +106,20 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
 
 
    @inlineCallbacks
-   def getUuid(self):
+   def getUuid(self, device = 1):
       try:
-         res = yield self.readRegister(1, self.IDX_REG_ID)
+         res = yield self.readRegister(device, self.IDX_REG_ID)
       except Exception, e:
          raise SrdpException(e)
       else:
+         print len(res)
          returnValue(res)
 
 
    @inlineCallbacks
-   def getEdsUri(self):
+   def getEdsUri(self, device = 1):
       try:
-         res = yield self.readRegister(1, self.IDX_REG_EDS)
+         res = yield self.readRegister(device, self.IDX_REG_EDS)
       except Exception, e:
          raise SrdpException(e)
       else:
@@ -152,7 +153,8 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
       except Exception, e:
          raise SrdpException(e)
       else:
-         val = list(struct.unpack("<HHH", res))
+         count = struct.unpack("<H", res[:2])
+         val = list(struct.unpack("<%dH" % count, res[2:]))
          returnValue(val)
 
 
@@ -182,14 +184,71 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
          pprint(eds.registersByIndex)
          print
 
+         dl = []
+         for i in devices:
+            dl.append(self.readRegister(i, self.IDX_REG_ID))
+
+         def println(res):
+            print res
+
+         DeferredList(dl).addBoth(println)
+
       except Exception, e:
          print "Error:", e
       self.transport.loseConnection()
 
 
+   @inlineCallbacks
+   def printDeviceIds(self):
+      devices = {}
+      devs = yield self.getDevices()
+      dl = []
+      for i in devs:
+         dl.append(self.readRegister(i, self.IDX_REG_ID))
+
+      def println(res):
+         print "res:", res
+
+      DeferredList(dl).addBoth(println)
+
+
+   @inlineCallbacks
+   def printDeviceIds2(self):
+      devices = yield self.getDevices()
+      for i in devices:
+         uuid = yield self.getUuid(i)
+         print i, binascii.hexlify(uuid)
+
+
+   @inlineCallbacks
+   def printDeviceEdsUris(self):
+      devices = yield self.getDevices()
+      for i in devices:
+         edsUri = yield self.getEdsUri(i)
+         print i, edsUri
+
+
+   @inlineCallbacks
+   def printDeviceEdsUris2(self):
+      devices = {}
+      devs = yield self.getDevices()
+      dl = []
+      for i in devs:
+         dl.append(self.readRegister(i, self.IDX_REG_EDS))
+
+      def println(res):
+         print "res:", res
+
+      DeferredList(dl).addBoth(println)
+
+
    def connectionMade(self):
       print 'Serial device connected.'
       reactor.callLater(1, self.run)
+      #reactor.callLater(1, self.printDeviceEdsUris)
+      #reactor.callLater(1, self.printDeviceEdsUris2)
+      #reactor.callLater(1, self.printDeviceIds)
+      #reactor.callLater(1, self.printDeviceIds2)
 
 
    def connectionLost(self, reason):
