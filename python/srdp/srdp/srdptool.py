@@ -49,17 +49,27 @@ def tabify(fields, formats):
    r = []
    for i in xrange(len(formats)):
 
+      N = int(formats[i][1:]) 
+
       if fields:
-         l = int(formats[i][1:]) - len(str(fields[i]))
+         s = str(fields[i])
+         if len(s) > N:
+            s = s[:N-2] + ".."
+         l = N - len(s)
          m = formats[i][0]
       else:
-         l = int(formats[i][1:])
+         s = ''
+         l = N
          m = '+'
 
       if m == 'l':
-         r.append(str(fields[i]) + ' ' * l)
+         r.append(s + ' ' * l)
       elif m == 'r':
-         r.append(' ' * l + str(fields[i]))
+         r.append(' ' * l + s)
+      elif m == 'c':
+         c1 = l / 2
+         c2 = l - c1
+         r.append(' ' * c1 + s + ' ' * c2)
       elif m == '+':
          r.append('-' * l)
       else:
@@ -74,10 +84,18 @@ def tabify(fields, formats):
 class SrdpToolOptions(usage.Options):
 
    # Available modes, specified with the --mode (or short: -m) flag.
-   MODES = ['verify', 'check', 'uuid', 'list', 'show']
+   ##
+   ##
+   ## srdptool -p 11 -b 115200 -e ./eds -m listen -w "2:1025, 3:1030"
+   ##
+   ## srdptool -p 11 -b 115200 -e ./eds -m listen -w "2:/slider#watch, 3:/button#watch"
+   ##
+   MODES = ['verify', 'check', 'uuid', 'list', 'show', 'listen']
 
    optParameters = [
       ['mode', 'm', None, 'Mode, one of: %s [required]' % ', '.join(MODES)],
+      ['show', 's', None, ''],
+      ['list', 'l', None, ''],
       ['eds', 'e', None, 'Path to directory with EDS files (recursively crawled).'],
       ['baudrate', 'b', 115200, 'Serial port baudrate.'],
       ['port', 'p', 11, 'Serial port to use (e.g. "11" for COM12 or "/dev/ttxACM0")'],
@@ -88,6 +106,8 @@ class SrdpToolOptions(usage.Options):
    ]
 
    def postOptions(self):
+
+      return
 
       if not self['mode']:
          raise usage.UsageError, "a mode must be specified to run!"
@@ -149,37 +169,6 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
       count = struct.unpack("<H", res[:2])
       val = list(struct.unpack("<%dH" % count, res[2:]))
       returnValue(val)
-
-
-   @inlineCallbacks
-   def run(self):
-      print "Retrieving adapter information .."
-      try:
-         uuid = yield self.getUuid()
-         edsUri = yield self.getEdsUri()
-         devices = yield self.getDevices()
-         swVersion = yield self.getSoftwareVersion()
-         hwVersion = yield self.getHardwareVersion()
-         freemem = yield self.getFreeMem()
-
-         print "Adapter Information:"
-         print
-         print "UUID               : %s" % (binascii.hexlify(uuid))
-         print "EDS URI            : %s (%d)" % (edsUri, len(edsUri))
-         print "Harware Version    : %s" % hwVersion
-         print "Software Version   : %s" % swVersion
-         print "Devices            : %s" % (str(devices))
-         print "Free memory (bytes): %d" % (freemem)
-
-         eds = self.runner.edsDatabase.getEdsByUri(edsUri)
-         print "Register map       : %d Registers" % len(eds.registersByIndex)
-         print
-         pprint(eds.registersByIndex)
-         print
-
-      except Exception, e:
-         print "Error:", e
-      self.transport.loseConnection()
 
 
    @inlineCallbacks
@@ -349,12 +338,59 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
          self.transport.loseConnection()
 
 
+   @inlineCallbacks
+   def showDevice(self):
+      try:
+         device = int(self.runner.modeArg)
+         uuid = yield self.getUuid(device)
+         edsUri = yield self.getEdsUri(device)
+         #devices = yield self.getDevices()
+         #swVersion = yield self.getSoftwareVersion()
+         #hwVersion = yield self.getHardwareVersion()
+         #freemem = yield self.getFreeMem()
+
+         print "Device Information:"
+         print
+         print "UUID               : %s" % (binascii.hexlify(uuid))
+         print "EDS URI            : %s" % (edsUri)
+         #print "Harware Version    : %s" % hwVersion
+         #print "Software Version   : %s" % swVersion
+         #print "Devices            : %s" % (str(devices))
+         #print "Free memory (bytes): %d" % (freemem)
+
+         eds = self.runner.edsDatabase.getEdsByUri(edsUri)
+         print "Register Map       : %d Registers" % len(eds.registersByIndex)
+         print
+
+         LINEFORMAT = ["r8", "l30", "l10", "l8", "l8", "l8", "l40"]
+
+         print tabify(["Index", "Path", "Access", "Optional", "Type", "Count", "Description"], LINEFORMAT)
+         print tabify(None, LINEFORMAT)
+
+         for k in sorted(eds.registersByIndex.keys()):
+            reg = eds.registersByIndex[k]
+            print tabify([reg['index'],
+                          reg['path'],
+                          reg['access'],
+                          reg['optional'],
+                          reg['type'],
+                          reg['count'],
+                          reg['desc']], LINEFORMAT)
+         print
+
+      except Exception, e:
+         print "Error:", e
+      self.transport.loseConnection()
+
+
+
    def connectionMade(self):
       print 'Serial device connected.'
-      if self.runner.mode == 'list':
-         reactor.callLater(1, self.listDevices)
+      modeMap = {'list': self.listDevices, 'show': self.showDevice}
+      if modeMap.has_key(self.runner.mode):
+         reactor.callLater(1, modeMap[self.runner.mode])
       else:
-         raise Exception("FIXME")
+         raise Exception("mode '%s' not implemented" % self.runner.mode)
       #reactor.callLater(1, self.printDeviceEdsUris)
       #reactor.callLater(1, self.printDeviceEdsUris2)
       #reactor.callLater(1, self.printDeviceIds)
@@ -396,7 +432,17 @@ class SrdpToolRunner(object):
       if self.debug:
          log.startLogging(sys.stdout)
 
-      self.mode = str(self.options['mode'])
+      #self.mode = str(self.options['mode'])
+      if self.options['show']:
+         self.mode = 'show'
+         self.modeArg = self.options['show']
+      elif self.options['list']:
+         self.mode = 'list'
+         self.modeArg = self.options['list']
+      else:
+         self.mode = None
+         self.modeArg = None
+
       self.edsDirectory = os.path.abspath(str(self.options['eds']))
 
       
