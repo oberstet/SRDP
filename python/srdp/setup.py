@@ -19,7 +19,7 @@
 from setuptools import setup, find_packages
 
 LONGSDESC = """
-Simple Register Device Protocol (SRDP).
+A Simple Register Device Protocol (SRDP) library for the Twisted networking framework.
 """
 
 ## get version string from "srdp/_version.py"
@@ -39,14 +39,17 @@ else:
 setup (
    name = 'srdp',
    version = verstr,
-   description = 'Simple Register Device Protocol (SRDP).',
+   description = 'Simple Register Device Protocol (SRDP) library.',
    long_description = LONGSDESC,
    license = 'Apache License 2.0',
    author = 'Tavendo GmbH',
    url = 'https://github.com/tavendo/SRDP',
    platforms = ('Any'),
-   install_requires = ['setuptools', 'Autobahn>=0.6.0', 'Twisted>=11.1',
-                       'jinja2>=2.6'],
+   install_requires = ['setuptools',
+                       'Twisted>=11.1',
+                       'jinja2>=2.6',
+                       'crcmod>=1.7',
+                       'pyserial>=2.6'],
    packages = find_packages(),
    #packages = ['srdp'],
    include_package_data = True,
@@ -61,13 +64,16 @@ setup (
    ## http://pypi.python.org/pypi?%3Aaction=list_classifiers
    ##
    classifiers = ["License :: OSI Approved :: Apache Software License",
-                  "Development Status :: 5 - Production/Stable",
+                  "Development Status :: 3 - Alpha",
                   "Environment :: Console",
                   "Framework :: Twisted",
                   "Intended Audience :: Developers",
                   "Operating System :: OS Independent",
                   "Programming Language :: Python",
                   "Topic :: Internet",
+                  "Topic :: Home Automation",
+                  "Topic :: Software Development :: Libraries",
+                  "Topic :: Software Development :: Embedded Systems",
                   "Topic :: Software Development :: Testing"],
-   keywords = 'autobahn autobahn.ws websocket wamp realtime'
+   keywords = 'srdp embedded mcu realtime'
 )
