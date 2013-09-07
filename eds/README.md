@@ -128,7 +128,7 @@ Besides having a scalar type, a register can have one of three composite types:
  2. *dictionary* of scalars
  3. *vector* of *dictionary* of scalars
 
-Note that other composite types like *dictionary* of *vectors* are invalid.
+Note that other composite types like *dictionary* of *vectors* are not supported.
 
 #### Vectors
 
@@ -143,7 +143,8 @@ The `count` attribute can either have an integer value
        ...
     }
 
-which then specifies a **fixed** length **vector** of elements (or `1`in case of a scalar register). The `count` attribute can also indicate a unsigned integer type 
+which then specifies a **fixed** length **vector** of elements (or `1`in case of a scalar register). The `count` attribute can also indicate a unsigned integer type
+
     {
        ...
        "type":     "float",
@@ -155,8 +156,7 @@ which then specifies a vector of elements that is prefixed with an integer field
 
     | length N (uint16) | float[0] | float[1] | ... | float[N - 1]
 
-> Note that since SRDP register are limited to 64k octets in length, the only useful integer types are `uint8` and `uint16`.
-> 
+Since SRDP register are limited to 64k octets in length, the only useful - and in fact allowed -  integer types are `uint8` and `uint16`.
 
 In this type system, Unicode strings are specified as vectors of the scalar `char`:
 

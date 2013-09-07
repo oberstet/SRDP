@@ -16,7 +16,8 @@
 ##
 ###############################################################################
 
-__all__ = ("SrdpFrameHeader",
+__all__ = ("SrdpException",
+           "SrdpFrameHeader",
            "SrdpProtocol",
            "SrdpHostProtocol",
            "SrdpEds",
@@ -277,6 +278,19 @@ class SrdpProtocol(Protocol):
 
 
 
+class SrdpException(Exception):
+
+   def __init__(self, data):
+      error_code = struct.unpack("<l", data)[0]
+      if SrdpFrameHeader.SRDP_ERR_DESC.has_key(error_code):
+         error_text = SrdpFrameHeader.SRDP_ERR_DESC[error_code]
+      else:
+         error_text = "SRDP error %d" % error_code
+      Exception.__init__(self, error_code, error_text)
+
+
+
+
 class SrdpHostProtocol(SrdpProtocol):
 
    def readRegister(self, device, register, position = 0, length = 0):
@@ -323,7 +337,7 @@ class SrdpHostProtocol(SrdpProtocol):
             if header.frametype == SrdpFrameHeader.SRDP_FT_ACK:
                self._pending[header.seq].callback(data)
             else:
-               self._pending[header.seq].errback(Failure(Exception(data)))
+               self._pending[header.seq].errback(Failure(SrdpException(data)))
             del self._pending[header.seq]
          else:
             log.msg("NO SUCH SEQ!")

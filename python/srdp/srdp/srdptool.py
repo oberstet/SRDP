@@ -31,10 +31,11 @@ print "Using Twisted reactor", reactor.__class__
 print
 
 from twisted.python import log, usage
+from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred, DeferredList, returnValue, inlineCallbacks
 from twisted.internet.serialport import SerialPort
 
-from srdp import SrdpEdsDatabase, SrdpHostProtocol, SrdpFrameHeader
+from srdp import SrdpEdsDatabase, SrdpHostProtocol, SrdpFrameHeader, SrdpException
 
 
 
@@ -44,11 +45,36 @@ def splitlen(seq, length):
    """
    return [seq[i:i+length] for i in range(0, len(seq), length)]
 
+def tabify(fields, formats):
+   r = []
+   for i in xrange(len(formats)):
+
+      if fields:
+         l = int(formats[i][1:]) - len(str(fields[i]))
+         m = formats[i][0]
+      else:
+         l = int(formats[i][1:])
+         m = '+'
+
+      if m == 'l':
+         r.append(str(fields[i]) + ' ' * l)
+      elif m == 'r':
+         r.append(' ' * l + str(fields[i]))
+      elif m == '+':
+         r.append('-' * l)
+      else:
+         raise Exception("invalid field format")
+
+   if m == '+':
+      return '-+-'.join(r)
+   else:
+      return ' | '.join(r)
+
 
 class SrdpToolOptions(usage.Options):
 
    # Available modes, specified with the --mode (or short: -m) flag.
-   MODES = ['verify', 'check', 'uuid']
+   MODES = ['verify', 'check', 'uuid', 'list', 'show']
 
    optParameters = [
       ['mode', 'm', None, 'Mode, one of: %s [required]' % ', '.join(MODES)],
@@ -69,18 +95,10 @@ class SrdpToolOptions(usage.Options):
       if self['mode'] not in SrdpToolOptions.MODES:
          raise usage.UsageError, "invalid mode %s" % self['mode']
 
-      if self['mode'] in ['verify', 'check']:
+      if self['mode'] in ['verify', 'check', 'list']:
          if not self['eds']:
             raise usage.UsageError, "a directory with EDS files is required!"
 
-
-class SrdpException(Exception):
-
-   def __init__(self, e):
-      error_code = struct.unpack("<l", e.args[0])[0]
-      if SrdpFrameHeader.SRDP_ERR_DESC.has_key(error_code):
-         error_text = SrdpFrameHeader.SRDP_ERR_DESC[error_code]
-      Exception.__init__(self, error_code, error_text)
 
 
 
@@ -96,66 +114,41 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
 
    @inlineCallbacks
    def getFreeMem(self):
-      try:
-         res = yield self.readRegister(1, self.IDX_REG_FREE_RAM)
-      except Exception, e:
-         raise SrdpException(e)
-      else:
-         res = struct.unpack("<L", res)[0]
-         returnValue(res)
+      res = yield self.readRegister(1, self.IDX_REG_FREE_RAM)
+      res = struct.unpack("<L", res)[0]
+      returnValue(res)
 
 
    @inlineCallbacks
    def getUuid(self, device = 1):
-      try:
-         res = yield self.readRegister(device, self.IDX_REG_ID)
-      except Exception, e:
-         raise SrdpException(e)
-      else:
-         print len(res)
-         returnValue(res)
+      res = yield self.readRegister(device, self.IDX_REG_ID)
+      returnValue(res)
 
 
    @inlineCallbacks
    def getEdsUri(self, device = 1):
-      try:
-         res = yield self.readRegister(device, self.IDX_REG_EDS)
-      except Exception, e:
-         raise SrdpException(e)
-      else:
-         returnValue(res[2:])
+      res = yield self.readRegister(device, self.IDX_REG_EDS)
+      returnValue(res[2:])
 
 
    @inlineCallbacks
    def getHardwareVersion(self):
-      try:
-         res = yield self.readRegister(1, self.IDX_REG_HW_VERSION)
-      except Exception, e:
-         raise SrdpException(e)
-      else:
-         returnValue(res[2:])
+      res = yield self.readRegister(1, self.IDX_REG_HW_VERSION)
+      returnValue(res[2:])
 
 
    @inlineCallbacks
    def getSoftwareVersion(self):
-      try:
-         res = yield self.readRegister(1, self.IDX_REG_SW_VERSION)
-      except Exception, e:
-         raise SrdpException(e)
-      else:
-         returnValue(res[2:])
+      res = yield self.readRegister(1, self.IDX_REG_SW_VERSION)
+      returnValue(res[2:])
 
 
    @inlineCallbacks
    def getDevices(self):
-      try:
-         res = yield self.readRegister(1, self.IDX_REG_DEVICES)
-      except Exception, e:
-         raise SrdpException(e)
-      else:
-         count = struct.unpack("<H", res[:2])
-         val = list(struct.unpack("<%dH" % count, res[2:]))
-         returnValue(val)
+      res = yield self.readRegister(1, self.IDX_REG_DEVICES)
+      count = struct.unpack("<H", res[:2])
+      val = list(struct.unpack("<%dH" % count, res[2:]))
+      returnValue(val)
 
 
    @inlineCallbacks
@@ -183,15 +176,6 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
          print
          pprint(eds.registersByIndex)
          print
-
-         dl = []
-         for i in devices:
-            dl.append(self.readRegister(i, self.IDX_REG_ID))
-
-         def println(res):
-            print res
-
-         DeferredList(dl).addBoth(println)
 
       except Exception, e:
          print "Error:", e
@@ -228,23 +212,149 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
          print i, edsUri
 
 
+   def getDeviceEdsMap2(self):
+      dret = Deferred()
+      ret = {}
+
+      d = self.readRegister(1, self.IDX_REG_DEVICES)
+
+      def _getDeviceListSuccess(res):
+         count = struct.unpack("<H", res[:2])
+         devices = list(struct.unpack("<%dH" % count, res[2:]))
+         devices.append(1)
+         for d in devices:
+            ret[d] = {}
+
+         # get EDS URIs
+         #
+         dl1 = []
+         for i in devices:
+            dl1.append(self.readRegister(i, self.IDX_REG_EDS))
+
+         dlist1 = DeferredList(dl1)
+
+         def _getDeviceEdsListSuccess1(res):
+            #print res
+            for i in xrange(len(res)):
+               ret[devices[i]]['eds'] = res[i][1][2:]
+
+            dret.callback(ret)
+
+         dlist1.addCallback(_getDeviceEdsListSuccess1)
+
+         ## get UUIDs
+         ##
+         dl2 = []
+         for i in devices:
+            dl2.append(self.readRegister(i, self.IDX_REG_ID))
+
+         dlist2 = DeferredList(dl2)
+
+         def _getDeviceEdsListSuccess2(res):
+            #print res
+            for i in xrange(len(res)):
+               ret[devices[i]]['uuid'] = res[i][1]
+
+            dret.callback(ret)
+
+         dlist2.addCallback(_getDeviceEdsListSuccess2)
+
+         #def _done():
+         #   dret.callback(ret)
+
+         #DeferredList([dlist1, dlist2]).addCallback(_done)
+
+      d.addCallback(_getDeviceListSuccess)
+
+      return dret
+
+
+
+   def getDeviceEdsMap(self):
+      dret = Deferred()
+
+      d = self.readRegister(1, self.IDX_REG_DEVICES)
+
+      def _getDeviceListSuccess(res):
+         count = struct.unpack("<H", res[:2])
+         devices = list(struct.unpack("<%dH" % count, res[2:]))
+         devices.append(1)
+
+         dl = []
+         for i in devices:
+            dl.append(self.readRegister(i, self.IDX_REG_EDS))
+
+         dlist = DeferredList(dl)
+
+         def _getDeviceEdsListSuccess1(res):
+            ret = {}
+            for i in xrange(len(res)):
+               ret[devices[i]] = res[i][1][2:]
+
+            dret.callback(ret)
+
+         dlist.addCallback(_getDeviceEdsListSuccess1)
+
+      d.addCallback(_getDeviceListSuccess)
+
+      return dret
+
+
+   def getDeviceUuidMap(self):
+      dret = Deferred()
+
+      d = self.readRegister(1, self.IDX_REG_DEVICES)
+
+      def _getDeviceListSuccess(res):
+         count = struct.unpack("<H", res[:2])
+         devices = list(struct.unpack("<%dH" % count, res[2:]))
+         devices.append(1)
+
+         dl = []
+         for i in devices:
+            dl.append(self.readRegister(i, self.IDX_REG_ID))
+
+         dlist = DeferredList(dl)
+
+         def _getDeviceEdsListSuccess1(res):
+            ret = {}
+            for i in xrange(len(res)):
+               ret[devices[i]] = res[i][1]
+
+            dret.callback(ret)
+
+         dlist.addCallback(_getDeviceEdsListSuccess1)
+
+      d.addCallback(_getDeviceListSuccess)
+
+      return dret
+
+
    @inlineCallbacks
-   def printDeviceEdsUris2(self):
-      devices = {}
-      devs = yield self.getDevices()
-      dl = []
-      for i in devs:
-         dl.append(self.readRegister(i, self.IDX_REG_EDS))
-
-      def println(res):
-         print "res:", res
-
-      DeferredList(dl).addBoth(println)
+   def listDevices(self):
+      try:
+         em = yield self.getDeviceEdsMap()
+         im = yield self.getDeviceUuidMap()
+         LINEFORMAT = ['r8', 'l32', 'l60', 'r9']
+         print
+         print tabify(["Device:", "UUID", "EDS URI", "Registers"], LINEFORMAT)
+         print tabify(None, LINEFORMAT)
+         for i in sorted(em.keys()):
+            eds = self.runner.edsDatabase.getEdsByUri(em[i])
+            print tabify([i, binascii.hexlify(im[i]), em[i], len(eds.registersByIndex)], LINEFORMAT)
+         print
+      except Exception, e:
+         raise e
+      finally:
+         self.transport.loseConnection()
 
 
    def connectionMade(self):
       print 'Serial device connected.'
-      reactor.callLater(1, self.run)
+      if self.runner.mode == 'list':
+         reactor.callLater(1, self.listDevices)
+      else:
+         raise Exception("FIXME")
       #reactor.callLater(1, self.printDeviceEdsUris)
       #reactor.callLater(1, self.printDeviceEdsUris2)
       #reactor.callLater(1, self.printDeviceIds)
@@ -303,7 +413,7 @@ class SrdpToolRunner(object):
          db.loadFromDir(self.edsDirectory)
          return False
 
-      elif self.mode == 'check':
+      elif self.mode in ['check', 'list', 'show']:
          self.baudrate = int(self.options['baudrate'])
          self.port = self.options['port']
          try:
