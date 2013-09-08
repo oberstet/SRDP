@@ -537,7 +537,8 @@ class SrdpEdsDatabase:
 
 
    def loadFromDir(self, dir):
-      self.reset()
+
+      n = 0
 
       pat = re.compile("^.*\.eds$")
       for root, dirs, files in os.walk(dir):
@@ -547,8 +548,18 @@ class SrdpEdsDatabase:
                eds = SrdpEds()
                eds.load(f)
                eds.filename = f
-               self._edsByUri[str(eds.uri)] = eds
-               self._edsByFilename[str(f)] = eds
+               uri = str(eds.uri)
+               if not self._edsByUri.has_key(uri):
+                  self._edsByUri[uri] = eds
+                  self._edsByFilename[str(f)] = eds
+                  n += 1
+               else:
+                  print "Warning: EDS file with same URI was already loaded (skipping this one)"
+
+      return n
+
+
+   def check(self):
 
       for eds in self._edsByUri.values():
          if self.debug:

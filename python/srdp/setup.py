@@ -47,7 +47,6 @@ setup (
    platforms = ('Any'),
    install_requires = ['setuptools',
                        'Twisted>=11.1',
-                       'jinja2>=2.6',
                        'crcmod>=1.7',
                        'pyserial>=2.6'],
    packages = find_packages(),

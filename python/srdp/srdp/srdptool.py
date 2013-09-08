@@ -19,7 +19,7 @@
 __all__ = ('run',)
 
 
-import sys, os, struct, binascii, uuid, json
+import sys, os, struct, binascii, uuid, json, pkg_resources
 from pprint import pprint
 
 try:
@@ -503,7 +503,7 @@ class SrdpToolRunner(object):
       group0.add_argument("-e",
                           "--eds",
                           type = str,
-                          required = True,
+                          action = "append",
                           metavar = "<EDS directory>",
                           help = "Path to EDS directory.")
 
@@ -598,7 +598,11 @@ class SrdpToolRunner(object):
       if self.debug:
          log.startLogging(sys.stdout)
 
-      self.edsDirectory = os.path.abspath(str(args.eds))
+      self.edsDirectories = [pkg_resources.resource_filename("srdp", "eds")]
+
+      if args.eds:
+         for e in args.eds:
+            self.edsDirectories.append(os.path.abspath(e))
 
       self._truncate = int(args.truncate)
 
@@ -656,29 +660,27 @@ class SrdpToolRunner(object):
             print "C/C++   :", '{' + ', '.join(['0x' + x for x in splitlen(u.hex, 2)]) + '}'
          return False
 
-      elif self.mode == 'check':
+      elif self.mode in ['check', 'list', 'show', 'read', 'monitor']:
 
-         db = SrdpEdsDatabase()
-         l = db.loadFromDir(self.edsDirectory)
+         self.edsDatabase = SrdpEdsDatabase(debug = self.debug)
 
-         print
-         print "Ok: loaded and checked %d EDS files from %s" % (l, self.edsDirectory)
-         print
+         total = 0
+         for d in self.edsDirectories:
+            l = self.edsDatabase.loadFromDir(d)
+            total += l
+            print "Ok: loaded and checked %d EDS files from %s" % (l, d)
 
-         return False
+         l = self.edsDatabase.check()
+         print "EDS database with %d objects initiated." % l
 
-      elif self.mode in ['list', 'show', 'read', 'monitor']:
+         if self.mode == 'check':
+            return False
 
          try:
             self.port = int(self.port)
          except:
             # on RaspberryPi, Serial-over-USB appears as /dev/ttyACM0
             pass
-
-         print "Loading EDS files from directory %s .." % self.edsDirectory
-         self.edsDatabase = SrdpEdsDatabase(debug = self.debug)
-         self.edsDatabase.loadFromDir(self.edsDirectory)
-         print "EDS database with %d objects initiated." % len(self.edsDatabase._edsByUri)
 
          print "Connecting to serial port %s at %d baud .." % (self.port, self.baudrate)
          self.serialProtocol = SrdpToolHostProtocol(debug = self.debug)
