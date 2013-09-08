@@ -22,6 +22,12 @@ __all__ = ('run',)
 import sys, os, struct, binascii, uuid, json
 from pprint import pprint
 
+try:
+   import argparse
+except:
+   print "please install the argparse module"
+   sys.exit(1)
+
 if sys.platform == 'win32':
    ## on windows, we need to use the following reactor for serial support
    ## http://twistedmatrix.com/trac/ticket/3802
@@ -30,7 +36,7 @@ if sys.platform == 'win32':
    win32eventreactor.install()
 
 from twisted.internet import reactor
-from twisted.python import log, usage
+from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred, \
                                    DeferredList, \
@@ -38,6 +44,7 @@ from twisted.internet.defer import Deferred, \
                                    inlineCallbacks
 from twisted.internet.serialport import SerialPort
 
+from _version import __version__
 from srdp import SrdpEdsDatabase, \
                  SrdpHostProtocol, \
                  SrdpFrameHeader, \
@@ -117,48 +124,6 @@ def tabify(fields, formats, truncate = 120):
    else:
       return ' | '.join(r)
 
-
-
-class SrdpToolOptions(usage.Options):
-
-   MODES = ['verify', 'check', 'uuid', 'list', 'show', 'listen']
-
-   optParameters = [
-
-      ['check',    'c', None, ''],
-      ['list',     'l', None, ''],
-      ['show',     's', None, ''],
-      ['read',     'r', None, ''],
-      ['monitor',  'm', None, ''],
-
-      ['with',     'w', None,    'Write registers before running.'],
-
-      ['eds',      'e', None,    'Path to directory with EDS files (recursively crawled).'],
-      ['baudrate', 'b', 115200,  'Serial port baudrate.'],
-      ['port',     'p', 11,      'Serial port to use (e.g. "11" for COM12 or "/dev/ttxACM0")'],
-      ['truncate', 't', 110,     'Truncate output line length.'],
-   ]
-
-   optFlags = [
-      ['debug', 'd', 'Activate debug output.']
-   ]
-
-   def postOptions(self):
-
-      #print "XX", self['write']
-      #sys.exit(0)
-
-      return
-
-      if not self['mode']:
-         raise usage.UsageError, "a mode must be specified to run!"
-
-      if self['mode'] not in SrdpToolOptions.MODES:
-         raise usage.UsageError, "invalid mode %s" % self['mode']
-
-      if self['mode'] in ['verify', 'check', 'list', 'read']:
-         if not self['eds']:
-            raise usage.UsageError, "a directory with EDS files is required!"
 
 
 SRDP_STYPE_TO_PTYPE = {'int8': 'b',
@@ -581,71 +546,168 @@ class SerialPortFix(SerialPort):
 class SrdpToolRunner(object):
 
    def __init__(self):
-      self.options = SrdpToolOptions()
-      try:
-         self.options.parseOptions()
-      except usage.UsageError, errortext:
-         print '%s %s\n' % (sys.argv[0], errortext)
-         print 'Try %s --help for usage details\n' % sys.argv[0]
-         sys.exit(1)
 
-      self.debug = self.options['debug']
+      parser = argparse.ArgumentParser(prog = "srdptool",
+                                       description = "SRDP Tool v%s" % __version__,
+                                       formatter_class = argparse.RawTextHelpFormatter)
+
+      group0 = parser.add_argument_group(title = 'EDS database')
+      group0.add_argument("-e",
+                          "--eds",
+                          type = str,
+                          required = True,
+                          metavar = "<EDS directory>",
+                          help = "Path to EDS directory.")
+
+      group1dummy = parser.add_argument_group(title = 'Run mode (one of the following)')
+      group1 = group1dummy.add_mutually_exclusive_group(required = True)
+
+      group1.add_argument(#"-c",
+                          "--check",
+                          help = "Load and check the EDS database.",
+                          action = "store_true")
+
+      group1.add_argument(#"-l",
+                          "--list",
+                          help = "List the devices currently connected to the adapter.",
+                          action = "store_true")
+
+      group1.add_argument(#"-s",
+                          "--show",
+                          help = "Show information for given device.",
+                          metavar = "<device>",
+                          type = int,
+                          action = "store")
+
+      group1.add_argument(#"-r",
+                          "--read",
+                          help = "Read current register values for given device (for all register that allow 'read' access).",
+                          metavar = "<device>",
+                          type = int,
+                          action = "store")
+
+      group1.add_argument(#"-m",
+                          "--monitor",
+                          help = "Monitor the given device for notify events.",
+                          metavar = "<device>",
+                          type = int,
+                          action = "store")
+
+      group1.add_argument(#"-u",
+                          "--uuid",
+                          type = int,
+                          help = "Generate given number of UUIDs.",
+                          metavar = "<count>",
+                          action = "store")
+
+      group2 = parser.add_argument_group(title = 'Register writing (optional)')
+      group2.add_argument(#"-w",
+                          "--write",
+                          action = "append",
+                          metavar = ('<register>', '<value>'),
+                          nargs = 2,
+                          help = "Write register values before main action. Register can be specified either by index or path.")
+
+      group3 = parser.add_argument_group(title = 'Serial port configuration')
+      group3.add_argument("-b",
+                          "--baud",
+                          type = int,
+                          default = 115200,
+                          choices = [300, 1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400, 57600, 115200, 230400],
+                          metavar = "<serial baudrate>",
+                          help = "Serial port baudrate in Bits/s.")
+
+      group3.add_argument("-p",
+                          "--port",
+                          default = 11,
+                          metavar = "<serial port>",
+                          help = 'Serial port to use (e.g. "11" for COM12 or "/dev/ttxACM0")')
+
+      group4 = parser.add_argument_group(title = 'Other options')
+      group4.add_argument("-t",
+                          "--truncate",
+                          type = int,
+                          default = 120,
+                          metavar = "<line length>",
+                          help = "Truncate display line length to given number of chars.")
+
+      group4.add_argument("-d",
+                          "--debug",
+                          help = "Enable debug output.",
+                          action = "store_true")
+
+      args = parser.parse_args()
+
+      self.debug = args.debug
       if self.debug:
          log.startLogging(sys.stdout)
 
-      self._truncate = int(self.options['truncate'])
+      self.edsDirectory = os.path.abspath(str(args.eds))
 
-      if self.options['with']:
-         try:
-            self._with = json.loads(self.options['with'])
-            if type(self._with) != list:
-               raise Exception("--with value must be a JSON list")
-            for l in self._with:
-               if type(l) != list or len(l) != 2:
-                  raise Exception("--with value must be a JSON list of pairs (lists of length 2)")
-            print self._with
-         except Exception, e:
-            raise Exception("Syntax error in 'with' JSON value [%s]" % e)
+      self._truncate = int(args.truncate)
+
+      if args.write:
+         self._with = []
+         for reg, val in args.write:
+            print reg, val
+            try:
+               reg = int(reg)
+            except:
+               try:
+                  reg = str(reg)
+               except Exception, e:
+                  raise e
+            try:
+               val = json.loads(val)
+            except Exception, e:
+               raise e
+            self._with.append([reg, val])
       else:
          self._with = None
 
-      print "SRDP Tool running X command"
-      #self.mode = str(self.options['mode'])
-      if self.options['show']:
-         self.mode = 'show'
-         self.modeArg = self.options['show']
-      elif self.options['list']:
-         self.mode = 'list'
-         self.modeArg = self.options['list']
-      elif self.options['read']:
-         self.mode = 'read'
-         self.modeArg = self.options['read']
-      elif self.options['monitor']:
-         self.mode = 'monitor'
-         self.modeArg = self.options['monitor']
-      else:
-         self.mode = None
-         self.modeArg = None
+      self.baudrate = int(args.baud)
+      self.port = args.port
 
-      self.edsDirectory = os.path.abspath(str(self.options['eds']))
+      if args.uuid:
+         self.mode = 'uuid'
+         self.modeArg = int(args.uuid)
+      elif args.check:
+         self.mode = 'check'
+      elif args.list:
+         self.mode = 'list'
+      elif args.show:
+         self.mode = 'show'
+         self.modeArg = int(args.show)
+      elif args.read:
+         self.mode = 'read'
+         self.modeArg = int(args.read)
+      elif args.monitor:
+         self.mode = 'monitor'
+         self.modeArg = int(args.monitor)
+      else:
+         raise Exception("logic error")
 
       
    def startService(self):
+
       if self.mode == 'uuid':
-         u = uuid.uuid4()
-         print u
-         print u.hex
-         print '{' + ', '.join(['0x' + x for x in splitlen(u.hex, 2)]) + '}'
+
+         for i in xrange(self.modeArg):
+            u = uuid.uuid4()
+            print
+            print "UUID    :", u
+            print "HEX     :", u.hex
+            print "C/C++   :", '{' + ', '.join(['0x' + x for x in splitlen(u.hex, 2)]) + '}'
          return False
 
-      elif self.mode == 'verify':
+      elif self.mode == 'check':
+
          db = SrdpEdsDatabase()
          db.loadFromDir(self.edsDirectory)
          return False
 
-      elif self.mode in ['check', 'list', 'show', 'read', 'monitor']:
-         self.baudrate = int(self.options['baudrate'])
-         self.port = self.options['port']
+      elif self.mode in ['list', 'show', 'read', 'monitor']:
+
          try:
             self.port = int(self.port)
          except:
