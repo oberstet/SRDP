@@ -47,14 +47,19 @@ class SrdpFrameHeader:
    SRDP_FT_ACK = 0x02
    SRDP_FT_ERR = 0x03
 
-   SRDP_FT_NAME = {SRDP_FT_REQ: 'REQ', SRDP_FT_ACK: 'ACK', SRDP_FT_ERR: 'ERR'}
+   SRDP_FT_NAME = {SRDP_FT_REQ: 'REQ',
+                   SRDP_FT_ACK: 'ACK',
+                   SRDP_FT_ERR: 'ERR'}
 
    SRDP_OP_SYNC   = 0x00
    SRDP_OP_READ   = 0x01
    SRDP_OP_WRITE  = 0x02
    SRDP_OP_CHANGE = 0x03
 
-   SRDP_OP_NAME = {SRDP_OP_SYNC: 'SYNC', SRDP_OP_READ: 'READ', SRDP_OP_WRITE: 'WRITE', SRDP_OP_CHANGE: 'CHANGE'}
+   SRDP_OP_NAME = {SRDP_OP_SYNC: 'SYNC',
+                   SRDP_OP_READ: 'READ',
+                   SRDP_OP_WRITE: 'WRITE',
+                   SRDP_OP_CHANGE: 'CHANGE'}
 
    SRDP_ERR_NOT_IMPLEMENTED    = -1
    SRDP_ERR_NO_SUCH_DEVICE     = -2
@@ -255,8 +260,8 @@ class SrdpProtocol(Protocol):
       if crc16 != self._srdpFrameHeader.crc16:
          print "CRC Error: computed = %s, received = %s" % (binascii.hexlify(struct.pack("<H", crc16)), binascii.hexlify(struct.pack("<H", self._srdpFrameHeader.crc16)))
          # FIXME: send ERR
-      else:
-         self._processFrame(self._srdpFrameHeader, self._srdpFrameData)
+      
+      self._processFrame(self._srdpFrameHeader, self._srdpFrameData)
 
       ## reset incoming frame
       ##
@@ -323,7 +328,7 @@ class SrdpHostProtocol(SrdpProtocol):
       return d
 
 
-   def  onRegisterChange(self, device, register, position, data):
+   def onRegisterChange(self, device, register, position, data):
       pass
 
 
@@ -361,6 +366,18 @@ class SrdpDriverProtocol(SrdpProtocol):
 
 class SrdpEds:
 
+   SRDP_STYPE_TO_PTYPE = {'int8': 'b',
+                          'uint8': 'B',
+                          'int16': 'h',
+                          'uint16': 'H',
+                          'int32': 'l',
+                          'uint32': 'L',
+                          'int64': 'q',
+                          'uint64': 'Q',
+                          'float': 'f',
+                          'double': 'd'}
+
+
    def __init__(self):
       for att in ['uri', 'label', 'desc', 'vendor', 'model']:
          setattr(self, att, None)
@@ -385,6 +402,89 @@ class SrdpEds:
          else:
             self.registersByIndex[r['index']] = r
             self.registersByPath[r['path']] = r
+
+
+   def getRegister(self, register):
+      """
+      Given a register path or index, return the register descriptor
+      or None if register cannot be found.
+      """
+      reg = None
+      if type(register) == int:
+         reg = self.registersByIndex.get(register, None)
+      elif type(register) in [str, unicode]:
+         reg = self.registersByPath.get(register, None)
+      return reg
+
+
+   def unserialize(self, register, data):
+      """
+      Given a register path or index, unserialize the given data (octets)
+      into a proper value according to the register type.
+      """
+      reg = self.getRegister(register)
+      if reg is None:
+         raise Exception("no such register")
+
+      ## string
+      ##
+      if reg['type']  == 'char' and reg['count'] in ['uint8', 'uint16']:
+         if reg['count'] == 'uint8':
+            return data[1:].decode('utf8')
+         elif reg['count'] == 'uint16':
+            return data[2:].decode('utf8')
+
+      elif type(reg['type']) == list:
+         o = {}
+         td = '<'
+         for field in reg['type']:
+            td += SrdpEds.SRDP_STYPE_TO_PTYPE[field['type']]
+         tval = list(struct.unpack(td, data))
+         for i in xrange(len(tval)):
+            o[str(reg['type'][i]['field'])] = tval[i]
+
+         return o
+
+      elif type(reg['count']) == int:
+         if reg['count'] == 1:
+            fmt = '<' + SrdpEds.SRDP_STYPE_TO_PTYPE[reg['type']]
+            tval = struct.unpack(fmt, data)[0]
+            return tval
+         else:
+            if reg['type'] == 'uint8':
+               return '0x' + binascii.hexlify(data)
+
+      else:
+         return '?'
+
+
+   def serialize(self, register, value):
+      """
+      Given a register path or index, serialize the given value
+      into data (octets) according to the register type.
+      """
+      reg = self.getRegister(register)
+      if reg is None:
+         raise Exception("no such register")
+
+      ## string
+      ##
+      if reg['type']  == 'char' and reg['count'] in ['uint8', 'uint16']:
+         if type(value) in [str, unicode]:
+            s = value.encode('utf8')
+            if reg['count'] == 'uint8':
+               return struct.pack('<B', len(s)) + s
+            elif reg['count'] == 'uint16':
+               return struct.pack('<H', len(s)) + s
+         else:
+            raise Exception("expected str/unicode value")
+
+      elif type(reg['count']) == int:
+         if reg['count'] == 1:
+            fmt = '<' + SrdpEds.SRDP_STYPE_TO_PTYPE[reg['type']]
+            return struct.pack(fmt, value)
+
+      raise Exception("serialize type not implemted")
 
 
 

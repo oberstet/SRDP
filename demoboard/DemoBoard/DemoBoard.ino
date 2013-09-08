@@ -427,8 +427,8 @@ int register_write(void* userdata, int dev, int reg, int pos, int len, const uin
                   return 1;
 
                case DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER_URATE:
-                  pot->setUpdateRate(*((const uint16_t*) data));
-                  return 2;
+                  pot->setUpdateRate(*((const float*) data));
+                  return 4;
 
                default:
                   return SRDP_ERR_NO_SUCH_REGISTER;
