@@ -16,7 +16,10 @@
 ##
 ###############################################################################
 
-import sys, os, struct, binascii, uuid
+__all__ = ('run',)
+
+
+import sys, os, struct, binascii, uuid, json
 from pprint import pprint
 
 if sys.platform == 'win32':
@@ -27,15 +30,18 @@ if sys.platform == 'win32':
    win32eventreactor.install()
 
 from twisted.internet import reactor
-#print "Using Twisted reactor", reactor.__class__
-#print
-
 from twisted.python import log, usage
 from twisted.python.failure import Failure
-from twisted.internet.defer import Deferred, DeferredList, returnValue, inlineCallbacks
+from twisted.internet.defer import Deferred, \
+                                   DeferredList, \
+                                   returnValue, \
+                                   inlineCallbacks
 from twisted.internet.serialport import SerialPort
 
-from srdp import SrdpEdsDatabase, SrdpHostProtocol, SrdpFrameHeader, SrdpException
+from srdp import SrdpEdsDatabase, \
+                 SrdpHostProtocol, \
+                 SrdpFrameHeader, \
+                 SrdpException
 
 
 
@@ -45,11 +51,42 @@ def splitlen(seq, length):
    """
    return [seq[i:i+length] for i in range(0, len(seq), length)]
 
-def tabify(fields, formats):
+
+def tabify(fields, formats, truncate = 120):
+   """
+   Tabified output formatting.
+   """
+
+   ## compute total length of all fields
+   ##
+   totalLen = 0
+   flexIndicators = 0
+   flexIndicatorIndex = None
+   for i in xrange(len(formats)):
+      ffmt = formats[i][1:]
+      if ffmt != "*":
+         totalLen += int(ffmt)
+      else:
+         flexIndicators += 1
+         flexIndicatorIndex = i
+
+   if flexIndicators > 1:
+      raise Exception("more than 1 flex field indicator")
+
+   ## reserve space for column separators (" | " or " + ")
+   ##
+   totalLen += 3 * (len(formats) - 1)
+
+   if totalLen > truncate:
+      raise Exception("cannot fit content in truncate length %d" % truncate)
+
    r = []
    for i in xrange(len(formats)):
 
-      N = int(formats[i][1:]) 
+      if i == flexIndicatorIndex:
+         N = truncate - totalLen
+      else:
+         N = int(formats[i][1:]) 
 
       if fields:
          s = str(fields[i])
@@ -81,15 +118,9 @@ def tabify(fields, formats):
       return ' | '.join(r)
 
 
+
 class SrdpToolOptions(usage.Options):
 
-   # Available modes, specified with the --mode (or short: -m) flag.
-   ##
-   ##
-   ## srdptool -p 11 -b 115200 -e ./eds -m listen -w "2:1025, 3:1030"
-   ##
-   ## srdptool -p 11 -b 115200 -e ./eds -m listen -w "2:/slider#watch, 3:/button#watch"
-   ##
    MODES = ['verify', 'check', 'uuid', 'list', 'show', 'listen']
 
    optParameters = [
@@ -101,6 +132,7 @@ class SrdpToolOptions(usage.Options):
       ['eds', 'e', None, 'Path to directory with EDS files (recursively crawled).'],
       ['baudrate', 'b', 115200, 'Serial port baudrate.'],
       ['port', 'p', 11, 'Serial port to use (e.g. "11" for COM12 or "/dev/ttxACM0")'],
+      ['truncate', 't', 110, 'Truncate output line length.'],
    ]
 
    optFlags = [
@@ -182,13 +214,6 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
 
 
    @inlineCallbacks
-   def getFreeMem(self):
-      res = yield self.readRegister(1, self.IDX_REG_FREE_RAM)
-      res = struct.unpack("<L", res)[0]
-      returnValue(res)
-
-
-   @inlineCallbacks
    def getUuid(self, device = 1):
       res = yield self.readRegister(device, self.IDX_REG_ID)
       returnValue(res)
@@ -201,111 +226,11 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
 
 
    @inlineCallbacks
-   def getHardwareVersion(self):
-      res = yield self.readRegister(1, self.IDX_REG_HW_VERSION)
-      returnValue(res[2:])
-
-
-   @inlineCallbacks
-   def getSoftwareVersion(self):
-      res = yield self.readRegister(1, self.IDX_REG_SW_VERSION)
-      returnValue(res[2:])
-
-
-   @inlineCallbacks
    def getDevices(self):
       res = yield self.readRegister(1, self.IDX_REG_DEVICES)
       count = struct.unpack("<H", res[:2])
       val = list(struct.unpack("<%dH" % count, res[2:]))
       returnValue(val)
-
-
-   @inlineCallbacks
-   def printDeviceIds(self):
-      devices = {}
-      devs = yield self.getDevices()
-      dl = []
-      for i in devs:
-         dl.append(self.readRegister(i, self.IDX_REG_ID))
-
-      def println(res):
-         print "res:", res
-
-      DeferredList(dl).addBoth(println)
-
-
-   @inlineCallbacks
-   def printDeviceIds2(self):
-      devices = yield self.getDevices()
-      for i in devices:
-         uuid = yield self.getUuid(i)
-         print i, binascii.hexlify(uuid)
-
-
-   @inlineCallbacks
-   def printDeviceEdsUris(self):
-      devices = yield self.getDevices()
-      for i in devices:
-         edsUri = yield self.getEdsUri(i)
-         print i, edsUri
-
-
-   def getDeviceEdsMap2(self):
-      dret = Deferred()
-      ret = {}
-
-      d = self.readRegister(1, self.IDX_REG_DEVICES)
-
-      def _getDeviceListSuccess(res):
-         count = struct.unpack("<H", res[:2])
-         devices = list(struct.unpack("<%dH" % count, res[2:]))
-         devices.append(1)
-         for d in devices:
-            ret[d] = {}
-
-         # get EDS URIs
-         #
-         dl1 = []
-         for i in devices:
-            dl1.append(self.readRegister(i, self.IDX_REG_EDS))
-
-         dlist1 = DeferredList(dl1)
-
-         def _getDeviceEdsListSuccess1(res):
-            #print res
-            for i in xrange(len(res)):
-               ret[devices[i]]['eds'] = res[i][1][2:]
-
-            dret.callback(ret)
-
-         dlist1.addCallback(_getDeviceEdsListSuccess1)
-
-         ## get UUIDs
-         ##
-         dl2 = []
-         for i in devices:
-            dl2.append(self.readRegister(i, self.IDX_REG_ID))
-
-         dlist2 = DeferredList(dl2)
-
-         def _getDeviceEdsListSuccess2(res):
-            #print res
-            for i in xrange(len(res)):
-               ret[devices[i]]['uuid'] = res[i][1]
-
-            dret.callback(ret)
-
-         dlist2.addCallback(_getDeviceEdsListSuccess2)
-
-         #def _done():
-         #   dret.callback(ret)
-
-         #DeferredList([dlist1, dlist2]).addCallback(_done)
-
-      d.addCallback(_getDeviceListSuccess)
-
-      return dret
-
 
 
    def getDeviceEdsMap(self):
@@ -382,13 +307,13 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
          print "Adapter EDS URI    : %s" % (em[1])
          print "Connected Devices  :"
 
-         LINEFORMAT = ['r8', 'l32', 'l60', 'r9']
+         LINEFORMAT = ['r8', 'l32', 'l*', 'r9']
          print
-         print tabify(["Device:", "UUID", "EDS URI", "Registers"], LINEFORMAT)
-         print tabify(None, LINEFORMAT)
+         print tabify(["Device:", "UUID", "EDS URI", "Registers"], LINEFORMAT, self.runner._truncate)
+         print tabify(None, LINEFORMAT, self.runner._truncate)
          for i in sorted(em.keys()):
             eds = self.runner.edsDatabase.getEdsByUri(em[i])
-            print tabify([i, binascii.hexlify(im[i]), em[i], len(eds.registersByIndex)], LINEFORMAT)
+            print tabify([i, binascii.hexlify(im[i]), em[i], len(eds.registersByIndex)], LINEFORMAT, self.runner._truncate)
          print
       except Exception, e:
          raise e
@@ -415,10 +340,10 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
          print "Register Map       :"
          print
 
-         LINEFORMAT = ["r10", "l24", "l10", "l8", "l8", "l8", "l10", "l38"]
+         LINEFORMAT = ["r10", "l24", "l10", "l8", "l8", "l8", "l10", "l*"]
 
-         print tabify(["Register:", "Path", "Access", "Optional", "Count", "Type", "Component", "Description"], LINEFORMAT)
-         print tabify(None, LINEFORMAT)
+         print tabify(["Register:", "Path", "Access", "Optional", "Count", "Type", "Component", "Description"], LINEFORMAT, self.runner._truncate)
+         print tabify(None, LINEFORMAT, self.runner._truncate)
 
          for k in sorted(eds.registersByIndex.keys()):
             reg = eds.registersByIndex[k]
@@ -433,11 +358,21 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
                           reg['count'],
                           rtype,
                           "",
-                          reg['desc']], LINEFORMAT)
+                          reg['desc']],
+                          LINEFORMAT,
+                          self.runner._truncate)
             if rtype == 'dict:':
                for att in reg['type']:
-                  print tabify(["", "", "", "", "", "  " + att["type"], att["field"], att["desc"]], LINEFORMAT)
-
+                  print tabify(["",
+                                "",
+                                "",
+                                "",
+                                "",
+                                "  " + att["type"],
+                                att["field"],
+                                att["desc"]],
+                                LINEFORMAT,
+                                self.runner._truncate)
          print
 
       except Exception, e:
@@ -483,10 +418,10 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
          print "Register Values    :"
          print
 
-         LINEFORMAT = ["r10", "l24", "l80"]
+         LINEFORMAT = ["r10", "l24", "l*"]
 
-         print tabify(["Register:", "Path", "Current Value"], LINEFORMAT)
-         print tabify(None, LINEFORMAT)
+         print tabify(["Register:", "Path", "Current Value"], LINEFORMAT, self.runner._truncate)
+         print tabify(None, LINEFORMAT, self.runner._truncate)
 
          for k in sorted(eds.registersByIndex.keys()):
             reg = eds.registersByIndex[k]
@@ -495,12 +430,12 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
                   val = yield self.readRegister(device, reg['index'])
                except Exception, e:
                   if reg['optional'] and e.args[0] == SrdpFrameHeader.SRDP_ERR_NO_SUCH_REGISTER:
-                     print tabify([k, reg['path'], '- (not implemented)'], LINEFORMAT)
+                     print tabify([k, reg['path'], '- (not implemented)'], LINEFORMAT, self.runner._truncate)
                   else:
-                     print tabify([k, reg['path'], 'Error: %s.' % e.args[1]], LINEFORMAT)
+                     print tabify([k, reg['path'], 'Error: %s.' % e.args[1]], LINEFORMAT, self.runner._truncate)
                else:
                   val = parse(reg, val)
-                  print tabify([k, reg['path'], val], LINEFORMAT)
+                  print tabify([k, reg['path'], val], LINEFORMAT, self.runner._truncate)
 
          print
 
@@ -523,10 +458,6 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
          reactor.callLater(delay, modeMap[self.runner.mode])
       else:
          raise Exception("mode '%s' not implemented" % self.runner.mode)
-      #reactor.callLater(1, self.printDeviceEdsUris)
-      #reactor.callLater(1, self.printDeviceEdsUris2)
-      #reactor.callLater(1, self.printDeviceIds)
-      #reactor.callLater(1, self.printDeviceIds2)
 
 
    def connectionLost(self, reason):
@@ -534,6 +465,7 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
       if self._debug:
          log.msg(reason)
       reactor.stop()
+
 
 
 # http://twistedmatrix.com/trac/ticket/1248
@@ -547,8 +479,6 @@ class SerialPortFix(SerialPort):
    def writeSomeData(self, data):
       return len(data)
 
-
-import json
 
 
 class SrdpToolRunner(object):
@@ -566,7 +496,8 @@ class SrdpToolRunner(object):
       if self.debug:
          log.startLogging(sys.stdout)
 
-      # python srdptool.py -e ../../../eds/ -p 11 --read 4 --with '[["/slider#watch", 1], ["/slider#urate", 13.9]]'
+      self._truncate = int(self.options['truncate'])
+
       if self.options['with']:
          try:
             self._with = json.loads(self.options['with'])
@@ -645,6 +576,7 @@ def run():
 
    
 # python srdptool.py -m verify -e ../../../eds/
+# python srdptool.py -e ../../../eds/ -p 11 --read 4 --with '[["/slider#watch", 1], ["/slider#urate", 13.9]]'
 
 if __name__ == '__main__':
    run()
