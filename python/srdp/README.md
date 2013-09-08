@@ -223,6 +223,46 @@ You can test your installation by doing:
 	     1027 | /slider                  | {'value': 533, 'time': 5294124}
     ...
 
+### Write Composite Value
+
+Here is a device with a RGB LED that is controlled from a register with 3 components:
+
+	$ srdptool --port COM12 --baud 115200 --eds ../../../eds/ --show 2
+	Loading EDS files from directory f:\scm\SRDP\eds ..
+	EDS database with 7 objects initiated.
+	Connecting to serial port COM12 at 115200 baud ..
+	Serial device connected.
+	Giving the device 1.0 seconds to get ready ..
+	
+	SRDP Device: Register Map
+	=========================
+	
+	Device Index   : 2
+	Device UUID    : eece840d244649988523bbd84c781f93
+	Device EDS URI : http://eds.tavendo.com/device/arduino-rgb-led
+	
+	----------+--------------------------+------------+----------+----------+----------+------------+-----------------------
+	 Register | Path                     | Access     | Optional | Count    | Type     | Component  | Description
+	----------+--------------------------+------------+----------+----------+----------+------------+-----------------------
+	        1 | /system/id               | read       | False    | 16       | uint8    |            | The globally unique ..
+	        2 | /system/eds              | read       | False    | uint16   | char     |            | The URI of the elect..
+	        3 | /system/version#hardware | read       | True     | uint16   | char     |            | Optional register: d..
+	        4 | /system/version#firmware | read       | True     | uint16   | char     |            | Optional register: d..
+	     1024 | /light                   | write      | False    | 1        | dict:    |            | Light color (RGB col..
+	          |                          |            |          |          |   uint8  | red        | Red color component ..
+	          |                          |            |          |          |   uint8  | green      | Green color componen..
+	          |                          |            |          |          |   uint8  | blue       | Blue color component..
+	     1025 | /light#flashrate         | readwrite  | False    | 1        | float    |            | LED flash rate in Hz..
+	----------+--------------------------+------------+----------+----------+----------+------------+-----------------------
+	
+	Serial device disconnected.
+
+And here is how you can write to the `/light` register and set a LED color value:
+
+	srdptool --port COM12 --baud 115200 --eds ../../../eds/ --monitor 2 \
+             --write 1024 '{"red": 255, "green": 100, "blue": 30}'
+
+
 ### Generate UUIDs
 
 	$ srdptool --eds ./eds/ --uuid 4

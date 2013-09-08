@@ -161,6 +161,10 @@ void send_frame(srdp_channel_t* channel, int ft, int op, int dev, int reg, size_
    channel->out.header.fields.pos = pos;
    channel->out.header.fields.len = len;
 
+   if (op == SRDP_OP_WRITE && ft == SRDP_FT_ACK) {
+      len = 0;
+   }
+
    // Compute CRC: the CRC is CRC-16 (like Xmodem .. see above for parameters) computed
    // over _all_ frame header fields (with CRC16 field set to 0) and all of the frame data.
    // Only _after_ computation the frame header field is set to the actually computed value.
@@ -180,13 +184,13 @@ void send_frame(srdp_channel_t* channel, int ft, int op, int dev, int reg, size_
 }
 
 
-// Read handler for driver builtin registers
+// Read handler for adapter builtin registers
 //
-int driver_register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* data) {
+int adapter_register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* data) {
 
    srdp_channel_t* channel = (srdp_channel_t*) userdata;
 
-   if (dev == 0) {
+   if (dev == 1) {
       int l;
 
       switch (reg) {
@@ -226,6 +230,53 @@ int driver_register_read (void* userdata, int dev, int reg, int pos, int len, ui
 }
 
 
+// Write handler for adapter builtin registers
+//
+int adapter_register_write (void* userdata, int dev, int reg, int pos, int len, uint8_t* data) {
+   srdp_channel_t* channel = (srdp_channel_t*) userdata;
+
+   if (dev == 1) {
+      switch (reg) {
+         default:
+            return SRDP_ERR_NO_SUCH_REGISTER;
+      }
+   } else {
+      return SRDP_ERR_NO_SUCH_DEVICE;
+   }
+}
+
+
+int perform_register_read(srdp_channel_t* channel, int dev, int reg, int pos, int len) {
+
+   int res = SRDP_ERR_NOT_IMPLEMENTED;
+
+   if (channel->register_read) {
+      res = channel->register_read(channel->userdata, dev, reg, pos, len, channel->out.data);
+   }
+
+   if (dev == 1 && res == SRDP_ERR_NO_SUCH_REGISTER) {
+      res = adapter_register_read(channel, dev, reg, pos, len, channel->out.data);
+   }
+
+   return res;
+}
+
+
+int perform_register_write(srdp_channel_t* channel, int dev, int reg, int pos, int len) {
+
+   int res = SRDP_ERR_NOT_IMPLEMENTED;
+
+   if (channel->register_write) {
+      res = channel->register_write(channel->userdata, dev, reg, pos, len, channel->in.data);
+   }
+   if (dev == 1 && res == SRDP_ERR_NO_SUCH_REGISTER) {
+      res = adapter_register_write(channel, dev, reg, pos, len, channel->out.data);
+   }
+
+   return res;
+}
+
+
 void process_incoming_frame (srdp_channel_t* channel) {
 
    int ft = (channel->in.header.fields.opdev >> 14) & 0x3;
@@ -245,32 +296,14 @@ void process_incoming_frame (srdp_channel_t* channel) {
       case SRDP_FT_REQ:
          switch (op) {
 
-            //SRDP_LOG("** 1");
-            //Serial.println("** 1");
-            //if (channel->log_message) channel->log_message("sdfsdf", 0);
-
             // register read
             //
             case SRDP_OP_READ:
-            /*
-               if (dev == 0 && reg < 1024 && reg > 2) {
-                  // driver builtin register
-                  res = driver_register_read(channel, dev, reg, pos, len, channel->out.data);
-               }
-               else
-               */
-               if (channel->register_read) {
-                  res = channel->register_read(channel->userdata, dev, reg, pos, len, channel->out.data);
-               } else {
-                  // FIXME: send error
-               }
 
-               //SRDP_LOG("** 2");
-               //SRDP_LOG(res);
+               res = perform_register_read(channel, dev, reg, pos, len);
 
                if (res < 0) {
-                  // FIXME: send error
-                  *((uint32_t*) channel->out.data) = res;
+                  *((int32_t*) channel->out.data) = res;
                   send_frame(channel, SRDP_FT_ERR, SRDP_OP_READ, dev, reg, 0, 4);
                } else {
                   send_frame(channel, SRDP_FT_ACK, SRDP_OP_READ, dev, reg, pos, res);
@@ -280,17 +313,15 @@ void process_incoming_frame (srdp_channel_t* channel) {
             // register write
             //
             case SRDP_OP_WRITE:
-               if (channel->register_write) {
-                  res = channel->register_write(channel->userdata, dev, reg, pos, len, channel->in.data);
-                  if (res < 0) {
-                     // FIXME: send error
-                  } else {
-                     //channel->out.data[0] = 7;
-                     //send_frame(channel, SRDP_FT_ACK, SRDP_OP_WRITE, dev, reg, pos, res);
-                  }
+
+               res = perform_register_write(channel, dev, reg, pos, len);
+
+               if (res < 0) {
+                  *((int32_t*) channel->out.data) = res;
+                  send_frame(channel, SRDP_FT_ERR, SRDP_OP_WRITE, dev, reg, 0, 4);
                } else {
-                  // FIXME: send error
-               }
+                  send_frame(channel, SRDP_FT_ACK, SRDP_OP_WRITE, dev, reg, pos, res);
+               }               
                break;
 
             // unknown operation
@@ -359,24 +390,16 @@ void srdp_init(srdp_channel_t* channel,
 
 int srdp_notify(srdp_channel_t* channel, int dev, int reg, int pos, int len) {
 
-   int res;
-
-   if (dev == 0 && reg < 1024) {
-      // driver builtin register
-      res = driver_register_read(channel, dev, reg, pos, len, channel->out.data);
-   }
-   else if (channel->register_read) {
-      res = channel->register_read(channel->userdata, dev, reg, pos, len, channel->out.data);
-   } else {
-      // FIXME: send error
-   }
+   int res = perform_register_read(channel, dev, reg, pos, len);
 
    if (res < 0) {
-      // FIXME: send error
+      // do nothing .. not bother the remote with local errors
    } else {
       send_frame(channel, SRDP_FT_REQ, SRDP_OP_CHANGE, dev, reg, pos, res);
       channel->_sent_reg_change_req += 1;
    }
+
+   return res;
 }
 
 

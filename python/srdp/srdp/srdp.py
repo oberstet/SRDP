@@ -479,6 +479,14 @@ class SrdpEds:
          else:
             raise Exception("expected str/unicode value")
 
+      elif type(reg['type']) == list:
+         o = []
+         td = '<'
+         for field in reg['type']:
+            td += SrdpEds.SRDP_STYPE_TO_PTYPE[field['type']]
+            o.append(value[field['field']])
+         return struct.pack(td, *o)
+
       elif type(reg['count']) == int:
          if reg['count'] == 1:
             fmt = '<' + SrdpEds.SRDP_STYPE_TO_PTYPE[reg['type']]
