@@ -369,6 +369,15 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
       try:
          em = yield self.getDeviceEdsMap()
          im = yield self.getDeviceUuidMap()
+
+         print
+         print "Adapter Information"
+         print "==================="
+         print
+         print "UUID               : %s" % (binascii.hexlify(im[1]))
+         print "EDS URI            : %s" % (em[1])
+         print "Connected Devices  :"
+
          LINEFORMAT = ['r8', 'l32', 'l60', 'r9']
          print
          print tabify(["Device:", "UUID", "EDS URI", "Registers"], LINEFORMAT)
@@ -389,28 +398,22 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
          device = int(self.runner.modeArg)
          uuid = yield self.getUuid(device)
          edsUri = yield self.getEdsUri(device)
-         #devices = yield self.getDevices()
-         #swVersion = yield self.getSoftwareVersion()
-         #hwVersion = yield self.getHardwareVersion()
-         #freemem = yield self.getFreeMem()
 
          print
-         print "Device Information:"
+         print "Device Information"
+         print "=================="
          print
+         print "Index              : %d" % device
          print "UUID               : %s" % (binascii.hexlify(uuid))
          print "EDS URI            : %s" % (edsUri)
-         #print "Harware Version    : %s" % hwVersion
-         #print "Software Version   : %s" % swVersion
-         #print "Devices            : %s" % (str(devices))
-         #print "Free memory (bytes): %d" % (freemem)
 
          eds = self.runner.edsDatabase.getEdsByUri(edsUri)
-         print "Register Map       : %d Registers" % len(eds.registersByIndex)
+         print "Register Map       :"
          print
 
-         LINEFORMAT = ["r8", "l24", "l10", "l8", "l8", "l8", "l10", "l40"]
+         LINEFORMAT = ["r10", "l24", "l10", "l8", "l8", "l8", "l10", "l38"]
 
-         print tabify(["Index", "Path", "Access", "Optional", "Count", "Type", "Component", "Description"], LINEFORMAT)
+         print tabify(["Register:", "Path", "Access", "Optional", "Count", "Type", "Component", "Description"], LINEFORMAT)
          print tabify(None, LINEFORMAT)
 
          for k in sorted(eds.registersByIndex.keys()):
@@ -443,13 +446,25 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
    def readDevice(self):
       try:
          device = int(self.runner.modeArg)
+         uuid = yield self.getUuid(device)
          edsUri = yield self.getEdsUri(device)
          eds = self.runner.edsDatabase.getEdsByUri(edsUri)
 
-         LINEFORMAT = ["r8", "l24", "l80"]
-
          print
-         print tabify(["Index", "Path", "Value"], LINEFORMAT)
+         print "Device Information"
+         print "=================="
+         print
+         print "Index              : %d" % device
+         print "UUID               : %s" % (binascii.hexlify(uuid))
+         print "EDS URI            : %s" % (edsUri)
+
+         eds = self.runner.edsDatabase.getEdsByUri(edsUri)
+         print "Register Values    :"
+         print
+
+         LINEFORMAT = ["r10", "l24", "l80"]
+
+         print tabify(["Register:", "Path", "Current Value"], LINEFORMAT)
          print tabify(None, LINEFORMAT)
 
          for k in sorted(eds.registersByIndex.keys()):
@@ -458,7 +473,10 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
                try:
                   val = yield self.readRegister(device, reg['index'])
                except Exception, e:
-                  print tabify([k, reg['path'], '- (%s)' % e.args[1]], LINEFORMAT)
+                  if reg['optional'] and e.args[0] == SrdpFrameHeader.SRDP_ERR_NO_SUCH_REGISTER:
+                     print tabify([k, reg['path'], '- (not implemented)'], LINEFORMAT)
+                  else:
+                     print tabify([k, reg['path'], 'Error: %s.' % e.args[1]], LINEFORMAT)
                else:
                   val = parse(reg, val)
                   print tabify([k, reg['path'], val], LINEFORMAT)

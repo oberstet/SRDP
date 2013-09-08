@@ -130,6 +130,8 @@ Besides having a scalar type, a register can have one of three composite types:
 
 Note that other composite types like *dictionary* of *vectors* are not supported.
 
+> FIXME: We can allow fixed length vectors and dictionaries as dictionary elements.
+
 #### Vectors
 
 The number of elements contained in each register must be specified using the `count` attribute. A scalar type register has a `count` of `1`.
