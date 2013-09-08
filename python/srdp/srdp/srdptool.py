@@ -27,8 +27,8 @@ if sys.platform == 'win32':
    win32eventreactor.install()
 
 from twisted.internet import reactor
-print "Using Twisted reactor", reactor.__class__
-print
+#print "Using Twisted reactor", reactor.__class__
+#print
 
 from twisted.python import log, usage
 from twisted.python.failure import Failure
@@ -97,6 +97,7 @@ class SrdpToolOptions(usage.Options):
       ['show', 's', None, ''],
       ['read', 'r', None, ''],
       ['list', 'l', None, ''],
+      ['with', 'w', None, ''],
       ['eds', 'e', None, 'Path to directory with EDS files (recursively crawled).'],
       ['baudrate', 'b', 115200, 'Serial port baudrate.'],
       ['port', 'p', 11, 'Serial port to use (e.g. "11" for COM12 or "/dev/ttxACM0")'],
@@ -107,6 +108,9 @@ class SrdpToolOptions(usage.Options):
    ]
 
    def postOptions(self):
+
+      #print "XX", self['write']
+      #sys.exit(0)
 
       return
 
@@ -371,11 +375,11 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
          im = yield self.getDeviceUuidMap()
 
          print
-         print "Adapter Information"
-         print "==================="
+         print "SRDP Adapter Information"
+         print "========================"
          print
-         print "UUID               : %s" % (binascii.hexlify(im[1]))
-         print "EDS URI            : %s" % (em[1])
+         print "Adapter UUID       : %s" % (binascii.hexlify(im[1]))
+         print "Adapter EDS URI    : %s" % (em[1])
          print "Connected Devices  :"
 
          LINEFORMAT = ['r8', 'l32', 'l60', 'r9']
@@ -400,12 +404,12 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
          edsUri = yield self.getEdsUri(device)
 
          print
-         print "Device Information"
-         print "=================="
+         print "SRDP Device Information"
+         print "======================="
          print
-         print "Index              : %d" % device
-         print "UUID               : %s" % (binascii.hexlify(uuid))
-         print "EDS URI            : %s" % (edsUri)
+         print "Device Index       : %d" % device
+         print "Device UUID        : %s" % (binascii.hexlify(uuid))
+         print "Device EDS URI     : %s" % (edsUri)
 
          eds = self.runner.edsDatabase.getEdsByUri(edsUri)
          print "Register Map       :"
@@ -441,6 +445,19 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
       self.transport.loseConnection()
 
 
+   #@inlineCallbacks
+   def writeRegisters(self, device, eds, items):
+      for reg, data in items:
+         if type(reg) == int:
+            index = eds.registersByIndex.get(reg, None)['index']
+         elif type(reg) in [str, unicode]:
+            index = eds.registersByPath.get(reg, None)['index']
+         else:
+            raise Exception("no such register")
+         #print device, index, data
+         # unparse + writeregister
+         #returnValue(None)
+
 
    @inlineCallbacks
    def readDevice(self):
@@ -451,14 +468,18 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
          eds = self.runner.edsDatabase.getEdsByUri(edsUri)
 
          print
-         print "Device Information"
-         print "=================="
+         print "SRDP Device Information"
+         print "======================="
          print
-         print "Index              : %d" % device
-         print "UUID               : %s" % (binascii.hexlify(uuid))
-         print "EDS URI            : %s" % (edsUri)
+         print "Device Index       : %d" % device
+         print "Device UUID        : %s" % (binascii.hexlify(uuid))
+         print "Device EDS URI     : %s" % (edsUri)
 
          eds = self.runner.edsDatabase.getEdsByUri(edsUri)
+
+         if self.runner._with:
+            res = self.writeRegisters(device, eds, self.runner._with)
+
          print "Register Values    :"
          print
 
@@ -527,6 +548,8 @@ class SerialPortFix(SerialPort):
       return len(data)
 
 
+import json
+
 
 class SrdpToolRunner(object):
 
@@ -543,6 +566,22 @@ class SrdpToolRunner(object):
       if self.debug:
          log.startLogging(sys.stdout)
 
+      # python srdptool.py -e ../../../eds/ -p 11 --read 4 --with '[["/slider#watch", 1], ["/slider#urate", 13.9]]'
+      if self.options['with']:
+         try:
+            self._with = json.loads(self.options['with'])
+            if type(self._with) != list:
+               raise Exception("--with value must be a JSON list")
+            for l in self._with:
+               if type(l) != list or len(l) != 2:
+                  raise Exception("--with value must be a JSON list of pairs (lists of length 2)")
+            print self._with
+         except Exception, e:
+            raise Exception("Syntax error in 'with' JSON value [%s]" % e)
+      else:
+         self._with = None
+
+      print "SRDP Tool running X command"
       #self.mode = str(self.options['mode'])
       if self.options['show']:
          self.mode = 'show'
