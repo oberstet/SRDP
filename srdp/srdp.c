@@ -286,7 +286,7 @@ void process_incoming_frame (srdp_channel_t* channel) {
                      // FIXME: send error
                   } else {
                      //channel->out.data[0] = 7;
-                     send_frame(channel, SRDP_FT_ACK, SRDP_OP_WRITE, dev, reg, pos, res);
+                     //send_frame(channel, SRDP_FT_ACK, SRDP_OP_WRITE, dev, reg, pos, res);
                   }
                } else {
                   // FIXME: send error
