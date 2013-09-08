@@ -59,6 +59,7 @@ def splitlen(seq, length):
    return [seq[i:i+length] for i in range(0, len(seq), length)]
 
 
+
 def tabify(fields, formats, truncate = 120):
    """
    Tabified output formatting.
@@ -126,79 +127,11 @@ def tabify(fields, formats, truncate = 120):
 
 
 
-SRDP_STYPE_TO_PTYPE = {'int8': 'b',
-                       'uint8': 'B',
-                       'int16': 'h',
-                       'uint16': 'H',
-                       'int32': 'l',
-                       'uint32': 'L',
-                       'int64': 'q',
-                       'uint64': 'Q',
-                       'float': 'f',
-                       'double': 'd'}
-
-
-def parse(reg, data):
-   ## string
-   ##
-   if reg['type']  == 'char' and reg['count'] in ['uint8', 'uint16']:
-      if reg['count'] == 'uint8':
-         return data[1:].decode('utf8')
-      elif reg['count'] == 'uint16':
-         return data[2:].decode('utf8')
-
-   elif type(reg['type']) == list:
-      o = {}
-      td = '<'
-      for field in reg['type']:
-         td += SRDP_STYPE_TO_PTYPE[field['type']]
-      tval = list(struct.unpack(td, data))
-      for i in xrange(len(tval)):
-         o[str(reg['type'][i]['field'])] = tval[i]
-
-      return o
-
-   elif type(reg['count']) == int:
-      if reg['count'] == 1:
-         fmt = '<' + SRDP_STYPE_TO_PTYPE[reg['type']]
-         tval = struct.unpack(fmt, data)[0]
-         return tval
-      else:
-         if reg['type'] == 'uint8':
-            return '0x' + binascii.hexlify(data)
-
-   else:
-      return '?'
-
-
-def unparse(reg, value):
-   print "-----------"
-   ## string
-   ##
-   if reg['type']  == 'char' and reg['count'] in ['uint8', 'uint16']:
-      s = value.encode('utf8')
-      if reg['count'] == 'uint8':
-         return struct.pack('<B', len(s)) + s
-      elif reg['count'] == 'uint16':
-         return struct.pack('<H', len(s)) + s
-
-   elif type(reg['count']) == int:
-      if reg['count'] == 1:
-         fmt = '<' + SRDP_STYPE_TO_PTYPE[reg['type']]
-         return struct.pack(fmt, value)
-#      else:
-#         if reg['type'] == 'uint8':
-#            return '0x' + binascii.hexlify(data)
-
-
 class SrdpToolHostProtocol(SrdpHostProtocol):
 
    IDX_REG_ID = 1
    IDX_REG_EDS = 2
-   IDX_REG_HW_VERSION = 3
-   IDX_REG_SW_VERSION = 4
    IDX_REG_DEVICES = 5
-   IDX_REG_FREE_RAM = 1024
 
 
    @inlineCallbacks
@@ -429,14 +362,14 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
             reg = eds.registersByIndex[k]
             if reg['access'] in ['read', 'readwrite']:
                try:
-                  val = yield self.readRegister(device, reg['index'])
+                  data = yield self.readRegister(device, reg['index'])
                except Exception, e:
                   if reg['optional'] and e.args[0] == SrdpFrameHeader.SRDP_ERR_NO_SUCH_REGISTER:
                      print tabify([k, reg['path'], '- (not implemented)'], LINEFORMAT, self.runner._truncate)
                   else:
                      print tabify([k, reg['path'], 'Error: %s.' % e.args[1]], LINEFORMAT, self.runner._truncate)
                else:
-                  val = parse(reg, val)
+                  val = eds.unserialize(k, data)
                   print tabify([k, reg['path'], val], LINEFORMAT, self.runner._truncate)
 
          print
@@ -530,9 +463,13 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
 
 
 
-# http://twistedmatrix.com/trac/ticket/1248
-# http://stackoverflow.com/a/287293/884770
 class SerialPortFix(SerialPort):
+   """
+   Workaround for the following issue on Windows:
+
+   http://twistedmatrix.com/trac/ticket/1248
+   http://stackoverflow.com/a/287293/884770
+   """
 
    def __init__(self, *args, **kw):
       super(SerialPortFix, self).__init__(*args, **kw)
@@ -703,7 +640,12 @@ class SrdpToolRunner(object):
       elif self.mode == 'check':
 
          db = SrdpEdsDatabase()
-         db.loadFromDir(self.edsDirectory)
+         l = db.loadFromDir(self.edsDirectory)
+
+         print
+         print "Ok: loaded and checked %d EDS files from %s" % (l, self.edsDirectory)
+         print
+
          return False
 
       elif self.mode in ['list', 'show', 'read', 'monitor']:
@@ -737,9 +679,5 @@ def run():
       reactor.run()
 
    
-# python srdptool.py -m verify -e ../../../eds/
-# python srdptool.py -e ../../../eds/ -p 11 --read 4 --with '[["/slider#watch", 1], ["/slider#urate", 13.9]]'
-# python srdptool.py -e ../../../eds/ -p 2 --monitor 4 --with '[["/slider#max", 100], ["/button#watch", 1], ["/slider#watch", 1]]'
-
 if __name__ == '__main__':
    run()

@@ -548,7 +548,7 @@ class SrdpEdsDatabase:
          for i in eds.registerIncludes:
             self._includeRegisters(eds, i)
 
-      log.msg("SRDP EDS database built (%d objects)" % len(self._edsByUri))
+      return len(self._edsByUri)
 
 
    def getEdsByUri(self, uri):
