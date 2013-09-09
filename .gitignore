@@ -5,3 +5,6 @@ dist
 build
 eggs
 ~*
+.sconsign.dblite
+*.exe
+*.obj
