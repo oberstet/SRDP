@@ -178,7 +178,13 @@ void send_frame(srdp_channel_t* channel, int ft, int op, int dev, int reg, size_
    // and we don't want to split up a SRDP frame between different transport datagrams.
    //
    int total = SRDP_FRAME_HEADER_LEN + len;
-   channel->transport_write(channel->userdata, channel->out.header.buffer, total);
+
+   int written = channel->transport_write(channel->userdata, channel->out.header.buffer, total);
+   if (written < total) {
+      // FIXME: handle this situation ..
+      if (channel->log_message) channel->log_message("transport output buffer full", SRDP_LOGLEVEL_ERROR);
+   }
+
    channel->_sent_octets += total;
    channel->_sent_frames += 1;
 }

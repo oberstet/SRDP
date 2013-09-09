@@ -111,6 +111,12 @@ typedef int (*srdp_register_write) (void* userdata,
                                     int len,
                                     const uint8_t* data);
 
+#define SRDP_LOGLEVEL_INFO    1
+#define SRDP_LOGLEVEL_WARNING 2
+#define SRDP_LOGLEVEL_ERROR   3
+
+// Optional callback for SRDP library logging
+//
 typedef void (*srdp_log_message) (const char* msg, int level);
 
 

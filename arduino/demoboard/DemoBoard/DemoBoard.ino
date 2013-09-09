@@ -162,6 +162,15 @@ void writeEEPROM(int offset, const uint8_t* data, int length) {
 srdp_channel_t channel;
 
 
+// Custom logger for SRDP. We turn on a red LED to signal errors.
+//
+void log_message (const char* msg, int level) {
+   if (level == SRDP_LOGLEVEL_ERROR) {
+      digitalWrite(PIN_LED1, HIGH);
+   }
+}
+
+
 // Transport reader function used by the SRDP channel
 //
 ssize_t transport_read (void* userdata, uint8_t* data, size_t len) {
@@ -176,8 +185,7 @@ ssize_t transport_read (void* userdata, uint8_t* data, size_t len) {
 // Transport writer function used by the SRDP channel
 //
 ssize_t transport_write (void* userdata, const uint8_t* data, size_t len) {
-   Serial.write(data, len);
-   return len;
+   return Serial.write(data, len);
 }
 
 
@@ -419,15 +427,15 @@ void setup() {
    // configure serial interface
    //
    Serial.begin(115200); // default SERIAL_8N1
-   Serial.setTimeout(0);
-   //Serial.setTimeout(10);
+   //Serial.setTimeout(0);
+   Serial.setTimeout(10); // FIXME: 0 seems to behave strange sometimes ..
 
    // setup SRDP channel over serial
    //
    srdp_init(&channel,
              transport_write, transport_read,
              register_write, register_read,
-             0,
+             log_message,
              0);
 
    // LED 1
@@ -460,8 +468,6 @@ void loop() {
    //
    while (Serial.available()) {
       srdp_loop(&channel);
-      digitalWrite(PIN_LED2, LOW);
-      digitalWrite(PIN_LED2, HIGH);
    }
 
    // process buttons
@@ -485,7 +491,7 @@ void loop() {
       srdp_notify(&channel, DEVICE3_DEVICE_INDEX, DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER, 0, 0);
    }
 
-   // limit update frequency
+   // limit update frequency (FIXME: if this is too low (e.g. 10), there are timing issues with serial .. out buffer full?)
    //
    delay(10);
 }
