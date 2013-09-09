@@ -68,8 +68,16 @@ extern "C" {
 
 
 #include <stddef.h>
-#include <stdint.h>
-#include <stdbool.h>
+
+#ifdef _MSC_VER
+   // Oh well, even "stdint" is missing on VC2008 and older ..
+   // http://stackoverflow.com/questions/126279/c99-stdint-h-header-and-ms-visual-studio
+   // http://code.google.com/p/msinttypes/
+#  include <windows_stdint.h>
+#else
+#  include <stdint.h>
+#endif
+
 
 // signed integer type large enough to hold any size_t value (which
 // are unsigned)

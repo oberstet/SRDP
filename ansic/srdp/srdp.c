@@ -60,10 +60,6 @@ void srdp_loop(srdp_channel_t* channel) {
  * CRC of the string "123456789" is 0x31c3
  */
 
-#include <stddef.h>
-#include <stdint.h>
-
-
 #ifdef SRDP_CRC16_BIG_AND_FAST
 
 static const uint16_t crc_table[256] = {
@@ -138,6 +134,10 @@ uint16_t crc_calc(const uint8_t *data, size_t len)
 
 void send_frame(srdp_channel_t* channel, int ft, int op, int dev, int reg, size_t pos, size_t len) {
 
+   uint16_t crc;
+   int total;
+   int written;
+
    // | FT (2) | OP (2) | DEV (12) |
    //
    channel->out.header.fields.opdev = ((ft & 0x03) << 14) | ((op & 0x03) << 12) | (dev & 0x0fff);
@@ -170,16 +170,16 @@ void send_frame(srdp_channel_t* channel, int ft, int op, int dev, int reg, size_
    // Only _after_ computation the frame header field is set to the actually computed value.
    //
    channel->out.header.fields.crc16 = 0;
-   uint16_t crc = crc_calc(channel->out.header.buffer, SRDP_FRAME_HEADER_LEN + len);
+   crc = crc_calc(channel->out.header.buffer, SRDP_FRAME_HEADER_LEN + len);
    channel->out.header.fields.crc16 = crc;
 
    // now transmit frame header and data in one (!) go. this needs to be 1 call to the
    // user supplied callback since that callback could map to sending 1 UDP datagram.
    // and we don't want to split up a SRDP frame between different transport datagrams.
    //
-   int total = SRDP_FRAME_HEADER_LEN + len;
+   total = SRDP_FRAME_HEADER_LEN + len;
 
-   int written = channel->transport_write(channel->userdata, channel->out.header.buffer, total);
+   written = channel->transport_write(channel->userdata, channel->out.header.buffer, total);
    if (written < total) {
       // FIXME: handle this situation ..
       if (channel->log_message) channel->log_message("transport output buffer full", SRDP_LOGLEVEL_ERROR);
@@ -292,9 +292,9 @@ void process_incoming_frame (srdp_channel_t* channel) {
    int pos = channel->in.header.fields.pos;
    int len = channel->in.header.fields.len;
 
-   channel->_seq_in = channel->in.header.fields.seq;
-
    int res = SRDP_ERR_NOT_IMPLEMENTED;
+
+   channel->_seq_in = channel->in.header.fields.seq;
 
    //if (channel->log_message) channel->log_message("323234", 0);
 
