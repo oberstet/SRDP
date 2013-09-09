@@ -4,6 +4,10 @@
 #include <srdp.h>
 
 int main () {
-   printf("Hello, world!\n");
+
+   srdp_channel_t channel;
+   srdp_init(&channel, 0, 0, 0, 0, 0, 0);
+
+   printf("Done.\n");
    return 0;
 }

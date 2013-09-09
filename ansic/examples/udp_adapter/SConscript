@@ -1,6 +1,6 @@
-import os
+Import('env')
+Import('srdp')
 
-env = Environment(ENV = os.environ)
-env.Append(CPPPATH = ['#/ansic/srdp'])
+localenv = env.Clone()
 
-prg = env.Program('udp_adapter.c')
+prg = localenv.Program('udp_adapter.c', LIBS = [srdp])

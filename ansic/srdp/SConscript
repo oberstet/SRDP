@@ -1,0 +1,7 @@
+Import('env')
+
+localenv = env.Clone()
+
+srdp = localenv.StaticLibrary('srdp', ['srdp.c'])
+
+Return('srdp')

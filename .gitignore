@@ -8,3 +8,6 @@ eggs
 .sconsign.dblite
 *.exe
 *.obj
+*.lib
+*.a
+*.o
