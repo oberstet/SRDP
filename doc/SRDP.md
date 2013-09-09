@@ -41,6 +41,83 @@ A Modbus master hardware connected to a small Linux device (e.g. RaspberryPi). A
  * [Datagram Transport Layer Security](http://en.wikipedia.org/wiki/Datagram_Transport_Layer_Security)
  * [The 6LoWPAN Format](http://www.mi.fu-berlin.de/inf/groups/ag-tech/teaching/2012-13_WS/L_19528_Embedded_Internet_and_the_Internet_of_Things/06.pdf?1358508475)
 
+# UDP Multicast
+
+An SRDP adapter needs to communicate with an upstream SRDP host.
+
+no manual configuration
+no external configuration server
+
+SRDP adapters use [mDNS](http://tools.ietf.org/html/rfc6762), [DNS-SD](http://tools.ietf.org/html/rfc6763) and optionally [DNSSEC](http://tools.ietf.org/html/rfc4033).
+
+http://www.fiz-ix.com/2012/12/using-avahi-in-ubuntu-to-broadcast-services-to-macs-with-bonjour/
+
+http://linux.die.net/man/5/avahi.service
+
+http://elinux.org/RPi_Advanced_Setup
+http://wiki.ubuntuusers.de/Avahi
+
+http://stackoverflow.com/questions/3430245/how-to-develop-an-avahi-client-server
+http://stackoverflow.com/questions/15553508/browsing-avahi-services-with-python-misses-services
+http://avahi.org/wiki/PythonBrowseExample
+http://avahi.org/wiki/PythonPublishExample
+
+	
+	sudo apt-get install nss-mdns avahi-daemon avahi-utils  
+
+	old debian:
+	sudo update-rc.d avahi-daemon defaults
+
+	new debian:
+	sudo insserv avahi-daemon
+
+	sudo vim /etc/avahi/services/afpd.service
+	
+	
+	<?xml version="1.0" standalone='no'?><!--*-nxml-*-->
+	<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+	<service-group>
+	   <name replace-wildcards="yes">%h</name>
+	   <service>
+	      <type>_afpovertcp._tcp</type>
+	      <port>548</port>
+	   </service>
+	</service-group>
+
+
+
+	<?xml version="1.0" standalone='no'?>
+	<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+	<service-group>
+	        <name replace-wildcards="yes">%h</name>
+	        <service>
+	                <type>_device-info._tcp</type>
+	                <port>0</port>
+	                <txt-record>model=RackMac</txt-record>
+	        </service>
+	        <service>
+	                <type>_ssh._tcp</type>
+	                <port>22</port>
+	        </service>
+	</service-group>
+		
+	sudo /etc/init.d/avahi-daemon restart
+
+
+
+> "A multicast address is a logical identifier for a group of hosts in a computer network, that are available to process datagrams or frames intended to be multicast for a designated network service."
+> 
+
+239.192.0.0/14
+
+239.0.0.0/8 is Administratively Scoped IPv4 Multicast Space.
+239.255.0.0/16 is one of it's subsets (IPv4 Local Scope) in RFC 2365.
+
+Subset that might be even closer to what is needed here is 239.192.0.0/14 (The IPv4 Organization Local Scope)
+
+See [here](http://stackoverflow.com/questions/236231/how-do-i-choose-a-multicast-address-for-my-applications-use), [here](http://tools.ietf.org/html/rfc5771), [here](http://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml), 
+
+
 # CRC
 
 SRDP uses CRC-16 with the following parameters (parameters like Xmodem):

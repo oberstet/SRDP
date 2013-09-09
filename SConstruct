@@ -1,7 +1,7 @@
 import os
 
 env = Environment(ENV = os.environ)
-env.Append(CPPPATH = ['#/ansic/srdp'])
+env.Append(CPPPATH = ['#/ansic/srdp', r"C:\\Program Files (x86)\\Microsoft SDKs\\Windows\\v7.0A\\"])
 
 Export('env')
 

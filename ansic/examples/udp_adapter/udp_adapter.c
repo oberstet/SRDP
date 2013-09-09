@@ -6,7 +6,6 @@
 
 #include <srdp.h>
 
-
 // Custom logger for SRDP. We turn on a red LED to signal errors.
 //
 void log_message (const char* msg, int level) {
