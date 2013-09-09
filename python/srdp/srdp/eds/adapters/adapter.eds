@@ -54,6 +54,68 @@
          "type": "uint16",
          "count": "uint16",
          "desc": "The indices of the currently connected devices."
-      }
+      },
+
+      {
+         "index": 6,
+         "path": "/system/stats/register/change",
+         "optional": true,
+         "access": "read",
+         "type": [
+            {
+               "field": "reqs",
+               "type": "uint32",
+               "desc": "Total number of register change notification requests sent to host."
+            },
+            {
+               "field": "acks",
+               "type": "uint32",
+               "desc": "Total number of ACKs received from host upon register change notification requests previously sent."
+            },
+            {
+               "field": "errs",
+               "type": "uint32",
+               "desc": "Total number of errors received from host upon register change notification requests previously sent."
+            }
+         ],
+         "count": 1,
+         "desc": "Register change statistics."
+      },
+
+      {
+         "index": 7,
+         "path": "/system/stats/protocol",
+         "optional": true,
+         "access": "read",
+         "type": [
+            {
+               "field": "loops",
+               "type": "uint64",
+               "desc": "Number of SRDP loops executed."
+            },
+            {
+               "field": "octetsReceived",
+               "type": "uint64",
+               "desc": "Total number of octets received."
+            },
+            {
+               "field": "octetsSent",
+               "type": "uint64",
+               "desc": "Total number of octets sent."
+            },
+            {
+               "field": "framesReceived",
+               "type": "uint32",
+               "desc": "Total number of frames received."
+            },
+            {
+               "field": "framesSent",
+               "type": "uint32",
+               "desc": "Total number of frames sent."
+            }
+         ],
+         "count": 1,
+         "desc": "Register change statistics."
+      }      
    ]
 }

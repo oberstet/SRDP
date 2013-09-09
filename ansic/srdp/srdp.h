@@ -226,6 +226,7 @@ int srdp_notify(srdp_channel_t* channel,
 //
 void srdp_loop(srdp_channel_t* channel);
 
+int srdp_set_string(uint8_t* data, const char* str);
 
 #ifdef __cplusplus
 }

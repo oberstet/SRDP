@@ -197,7 +197,7 @@ int adapter_register_read (void* userdata, int dev, int reg, int pos, int len, u
 
          // Stats: Register Changes
          //
-         case 4:
+         case 6:
             if (pos == 0 && (len == 12 || len == 0)) {
                *((uint32_t*) (data + 0)) = channel->_sent_reg_change_req;
                *((uint32_t*) (data + 4)) = channel->_recv_reg_change_ack;
@@ -209,7 +209,7 @@ int adapter_register_read (void* userdata, int dev, int reg, int pos, int len, u
 
          // Stats: QQLL - Octets Received, Octets Sent, Frames Received, Frames Sent
          //
-         case 5:
+         case 7:
             if (pos == 0 && (len == 32 || len == 0)) {
                *((uint64_t*) (data + 0)) = channel->_loops;
                *((uint64_t*) (data + 8)) = channel->_recv_octets;
@@ -463,6 +463,15 @@ void srdp_loop(srdp_channel_t* channel) {
 
    channel->_loops += 1;
 }
+
+
+int srdp_set_string(uint8_t* data, const char* str) {
+   size_t slen = strlen(str);
+   *((uint16_t*) (data + 0)) = slen;
+   strncpy((char*) (data + 2), str, slen);
+   return 2 + slen;   
+}
+
 
 #endif // SRDP_DUMMY
 

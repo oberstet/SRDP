@@ -48,6 +48,14 @@
 #define PIN_BTN1    22
 #define PIN_BTN2    23
 
+
+// Wrappers for hardware components
+//
+SmoothAnalogInput pot1, pot2;
+Button btn1, btn2;
+RgbLed led3;
+
+
 // EDS URI for the adapter
 //
 #define ADAPTER_EDS_URI    "http://eds.tavendo.com/adapter/arduino-demoboard"
@@ -121,13 +129,6 @@ static const uint8_t DEVICE3_UUID[] = {0x1f, 0xfd, 0xf7, 0xdb, 0x1d, 0xa5, 0x40,
 //#define DEVICE_REGISTER_INDEX_COMBO_CONTROL_SLIDER_SMOOTH   1031
 
 
-// Wrappers for hardware components
-//
-SmoothAnalogInput pot1, pot2;
-Button btn1, btn2;
-RgbLed led3;
-
-
 // Little function that returns free ram on Arduino.
 // From here: http://jeelabs.org/2011/05/22/atmega-memory-use/
 //
@@ -148,10 +149,6 @@ void writeEEPROM(int offset, const uint8_t* data, int length) {
    for (int i = 0; i < length; ++i) {
       EEPROM.write(offset + i, data[i]);
    }
-}
-
-void log_message(const char* msg, int level) {
-   Serial.println(msg);
 }
 
 
@@ -202,33 +199,17 @@ int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* 
             // mandatory adapter register with adapter EDS URI
             //
             case ADAPTER_REGISTER_INDEX_EDS:
-               {
-                  // strings are prefixed with their length ..
-                  size_t slen = sizeof(ADAPTER_EDS_URI) - 1;
-                  *((uint16_t*) (data + 0)) = slen;
-                  strncpy((char*) (data + 2), ADAPTER_EDS_URI, slen);
-                  return 2 + slen;
-               }
+               return srdp_set_string(data, ADAPTER_EDS_URI);
 
             // optional adapter register with hardware version
             //
             case ADAPTER_REGISTER_INDEX_HW_VERSION:
-               {
-                  size_t slen = sizeof(ADAPTER_HW_VERSION) - 1;
-                  *((uint16_t*) (data + 0)) = slen;
-                  strncpy((char*) (data + 2), ADAPTER_HW_VERSION, slen);
-                  return 2 + slen;
-               }
+               return srdp_set_string(data, ADAPTER_HW_VERSION);
 
             // optional adapter register with software version
             //
             case ADAPTER_REGISTER_INDEX_SW_VERSION:
-               {
-                  size_t slen = sizeof(ADAPTER_SW_VERSION) - 1;
-                  *((uint16_t*) (data + 0)) = slen;
-                  strncpy((char*) (data + 2), ADAPTER_SW_VERSION, slen);
-                  return 2 + slen;
-               }
+               return srdp_set_string(data, ADAPTER_SW_VERSION);
 
             // mandatory adapter register with list of connected devices
             //
@@ -276,14 +257,10 @@ int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* 
             // mandatory device register with device EDS URI
             //
             case DEVICE_REGISTER_INDEX_EDS:
-               {
-                  // strings are prefixed with their length ..
-                  size_t slen = sizeof(DEVICE1_EDS_URI) - 1;
-                  *((uint16_t*) (data + 0)) = slen;
-                  strncpy((char*) (data + 2), DEVICE1_EDS_URI, slen);
-                  return 2 + slen;
-               }
+               return srdp_set_string(data, DEVICE1_EDS_URI);
 
+            // the LED is "write-only"
+            //
             case DEVICE_REGISTER_INDEX_COLOR_LIGHT:
                return SRDP_ERR_INVALID_REG_OP;
 
@@ -310,13 +287,7 @@ int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* 
                // mandatory device register with device EDS URI
                //
                case DEVICE_REGISTER_INDEX_EDS:
-                  {
-                     // strings are prefixed with their length ..
-                     size_t slen = strlen(edsUri);
-                     *((uint16_t*) (data + 0)) = slen;
-                     strncpy((char*) (data + 2), edsUri, slen);
-                     return 2 + slen;
-                  }
+                  return srdp_set_string(data, edsUri);
 
                case DEVICE_REGISTER_INDEX_COMBO_CONTROL_LIGHT:
                   return SRDP_ERR_INVALID_REG_OP;
@@ -454,11 +425,9 @@ void setup() {
    // setup SRDP channel over serial
    //
    srdp_init(&channel,
-             transport_write,
-             transport_read,
-             register_write,
-             register_read,
-             log_message,
+             transport_write, transport_read,
+             register_write, register_read,
+             0,
              0);
 
    // LED 1
@@ -516,5 +485,5 @@ void loop() {
 
    // limit update frequency
    //
-   delay(20);
+   delay(10);
 }

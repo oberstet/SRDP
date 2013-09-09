@@ -60,7 +60,7 @@ def splitlen(seq, length):
 
 
 
-def tabify(fields, formats, truncate = 120):
+def tabify(fields, formats, truncate = 120, filler = ['-', '+']):
    """
    Tabified output formatting.
    """
@@ -116,12 +116,12 @@ def tabify(fields, formats, truncate = 120):
          c2 = l - c1
          r.append(' ' * c1 + s + ' ' * c2)
       elif m == '+':
-         r.append('-' * l)
+         r.append(filler[0] * l)
       else:
          raise Exception("invalid field format")
 
    if m == '+':
-      return '-+-'.join(r)
+      return (filler[0] + filler[1] + filler[0]).join(r)
    else:
       return ' | '.join(r)
 
@@ -235,9 +235,13 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
          print tabify(None, LINEFORMAT, self.runner._truncate)
          print tabify(["Device", "UUID", "EDS URI", "Registers"], LINEFORMAT, self.runner._truncate)
          print tabify(None, LINEFORMAT, self.runner._truncate)
+
          for i in sorted(em.keys()):
+            if i == 2:
+               print tabify(None, LINEFORMAT, self.runner._truncate, filler = ['.', '|'])
             eds = self.runner.edsDatabase.getEdsByUri(em[i])
             print tabify([i, binascii.hexlify(im[i]), em[i], len(eds.registersByIndex)], LINEFORMAT, self.runner._truncate)
+
          print tabify(None, LINEFORMAT, self.runner._truncate)
          print
       except Exception, e:
@@ -271,13 +275,19 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
          if self.runner._with:
             res = self.writeRegisters(device, eds, self.runner._with)
 
-         LINEFORMAT = ["r9", "l24", "l10", "l8", "l8", "l8", "l10", "l*"]
+         LINEFORMAT = ["r9", "l30", "l10", "l8", "l8", "l8", "l10", "l*"]
 
          print tabify(None, LINEFORMAT, self.runner._truncate)
          print tabify(["Register", "Path", "Access", "Optional", "Count", "Type", "Component", "Description"], LINEFORMAT, self.runner._truncate)
          print tabify(None, LINEFORMAT, self.runner._truncate)
 
+         sysRegsDone = False
          for k in sorted(eds.registersByIndex.keys()):
+
+            if not sysRegsDone and k >= 1024:
+               print tabify(None, LINEFORMAT, self.runner._truncate, filler = ['.', '|'])
+               sysRegsDone = True
+
             reg = eds.registersByIndex[k]
             if type(reg['type']) == list:
                rtype = 'dict:'
@@ -359,13 +369,19 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
          if self.runner._with:
             res = self.writeRegisters(device, eds, self.runner._with)
 
-         LINEFORMAT = ["r9", "l24", "l*"]
+         LINEFORMAT = ["r9", "l30", "l*"]
 
          print tabify(None, LINEFORMAT, self.runner._truncate)
          print tabify(["Register", "Path", "Current Value"], LINEFORMAT, self.runner._truncate)
          print tabify(None, LINEFORMAT, self.runner._truncate)
 
+         sysRegsDone = False
          for k in sorted(eds.registersByIndex.keys()):
+
+            if not sysRegsDone and k >= 1024:
+               print tabify(None, LINEFORMAT, self.runner._truncate, filler = ['.', '|'])
+               sysRegsDone = True
+
             reg = eds.registersByIndex[k]
             if reg['access'] in ['read', 'readwrite']:
                try:
@@ -415,7 +431,7 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
          if self.runner._with:
             res = self.writeRegisters(device, eds, self.runner._with)
 
-         LINEFORMAT = ["r9", "l24", "l*"]
+         LINEFORMAT = ["r9", "l30", "l*"]
          self.LINES = 0
 
          def _printHeader():
@@ -598,11 +614,13 @@ class SrdpToolRunner(object):
       if self.debug:
          log.startLogging(sys.stdout)
 
-      self.edsDirectories = [pkg_resources.resource_filename("srdp", "eds")]
+      self.edsDirectories = []
 
       if args.eds:
          for e in args.eds:
             self.edsDirectories.append(os.path.abspath(e))
+
+      self.edsDirectories.append(pkg_resources.resource_filename("srdp", "eds"))
 
       self._truncate = int(args.truncate)
 
