@@ -540,7 +540,7 @@ class SrdpEdsDatabase:
 
       n = 0
 
-      pat = re.compile("^.*\.eds$")
+      pat = re.compile("^.*\.json$")
       for root, dirs, files in os.walk(dir):
          for f in files:
             if pat.match(f):

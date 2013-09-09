@@ -460,6 +460,8 @@ void loop() {
    //
    while (Serial.available()) {
       srdp_loop(&channel);
+      digitalWrite(PIN_LED2, LOW);
+      digitalWrite(PIN_LED2, HIGH);
    }
 
    // process buttons
