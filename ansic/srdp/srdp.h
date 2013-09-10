@@ -72,6 +72,7 @@ extern "C" {
 #  define SRDP_FRAME_DATA_MAX_LEN  (81 - SRDP_FRAME_HEADER_LEN)
 #endif
 
+#define SRDP_UDP_PORT 1910
 
 #include <stddef.h>
 
