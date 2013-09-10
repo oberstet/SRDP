@@ -46,7 +46,9 @@ from twisted.internet.serialport import SerialPort
 
 from _version import __version__
 from srdp import SrdpEdsDatabase, \
-                 SrdpHostProtocol, \
+                 SrdpProtocol, \
+                 SrdpStreamProtocol, \
+                 SrdpDatagramProtocol, \
                  SrdpFrameHeader, \
                  SrdpException
 
@@ -127,12 +129,11 @@ def tabify(fields, formats, truncate = 120, filler = ['-', '+']):
 
 
 
-class SrdpToolHostProtocol(SrdpHostProtocol):
+class SrdpToolProtocol(SrdpProtocol):
 
    IDX_REG_ID = 1
    IDX_REG_EDS = 2
    IDX_REG_DEVICES = 5
-
 
    @inlineCallbacks
    def getUuid(self, device = 1):
@@ -463,7 +464,7 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
       #   self.transport.loseConnection()
 
 
-   def connectionMade(self):
+   def transportReady(self):
       print 'Serial device connected.'
 
       delay = self.runner.delay
@@ -481,12 +482,25 @@ class SrdpToolHostProtocol(SrdpHostProtocol):
          raise Exception("mode '%s' not implemented" % self.runner.mode)
 
 
-   def connectionLost(self, reason):
+   def transportLost(self, reason):
       print 'Serial device disconnected.'
       if self._debug:
          log.msg(reason)
       reactor.stop()
 
+
+class SrdpToolStreamProtocol(SrdpToolProtocol, SrdpStreamProtocol):
+
+   def __init__(self, *args, **kwargs):
+      SrdpToolProtocol.__init__(self, *args, **kwargs)
+      SrdpStreamProtocol.__init__(self, *args, **kwargs)
+
+
+class SrdpToolDatagramProtocol(SrdpToolProtocol, SrdpDatagramProtocol):
+
+   def __init__(self, *args, **kwargs):
+      SrdpToolProtocol.__init__(self, *args, **kwargs)
+      SrdpDatagramProtocol.__init__(self, *args, **kwargs)
 
 
 class SerialPortFix(SerialPort):
@@ -544,103 +558,88 @@ class UdpClient(DatagramProtocol):
 
 class SrdpToolRunner(object):
 
-   def __init__(self):
+   def startService(self):
 
+      ## parse command line args
+      ##
       parser = argparse.ArgumentParser(prog = "srdptool",
-                                       description = "SRDP Tool v%s" % __version__,
-                                       #formatter_class = argparse.RawTextHelpFormatter
-                                       )
+                                       description = "SRDP Tool v%s" % __version__)
 
-      group0 = parser.add_argument_group(title = 'EDS database')
+      group0 = parser.add_argument_group(title = 'SRDP transport and EDS directories')
+      group0.add_argument("-t",
+                          "--transport",
+                          required = True,
+                          nargs = 2,
+                          metavar = ('<transport>', '<transport parameters>'),
+                          action = "store",
+                          help = "SRDP transport to use. Eg. 'serial /dev/ttxACM0:19200' or 'serial com3:115200'")
+
       group0.add_argument("-e",
                           "--eds",
                           type = str,
                           action = "append",
-                          metavar = "<EDS directory>",
+                          metavar = "<directory path>",
                           help = "Path to EDS directory.")
 
       group1dummy = parser.add_argument_group(title = 'Run mode (one of the following)')
       group1 = group1dummy.add_mutually_exclusive_group(required = True)
 
-      group1.add_argument(#"-c",
-                          "--check",
+      group1.add_argument("--check",
                           help = "Load and check the EDS database.",
                           action = "store_true")
 
-      group1.add_argument(#"-l",
-                          "--list",
+      group1.add_argument("--list",
                           help = "List the devices currently connected to the adapter.",
                           action = "store_true")
 
-      group1.add_argument(#"-s",
-                          "--show",
+      group1.add_argument("--show",
                           help = "Show information for given device.",
                           metavar = "<device>",
                           type = int,
                           action = "store")
 
-      group1.add_argument(#"-r",
-                          "--read",
+      group1.add_argument("--read",
                           help = "Read current register values for given device (for all register that allow 'read' access).",
                           metavar = "<device>",
                           type = int,
                           action = "store")
 
-      group1.add_argument(#"-m",
-                          "--monitor",
+      group1.add_argument("--monitor",
                           help = "Monitor the given device for notify events.",
                           metavar = "<device>",
                           type = int,
                           action = "store")
 
-      group1.add_argument(#"-u",
-                          "--uuid",
+      group1.add_argument("--uuid",
                           type = int,
                           help = "Generate given number of UUIDs.",
                           metavar = "<count>",
                           action = "store")
 
       group2 = parser.add_argument_group(title = 'Register writing (optional)')
-      group2.add_argument(#"-w",
-                          "--write",
+      group2.add_argument("--write",
                           action = "append",
                           metavar = ('<register>', '<value>'),
                           nargs = 2,
                           help = "Write register values before main action. Register can be specified either by index or path.")
 
-      group3 = parser.add_argument_group(title = 'Serial port configuration')
-      group3.add_argument("-b",
-                          "--baud",
-                          type = int,
-                          default = 115200,
-                          choices = [300, 1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400, 57600, 115200, 230400],
-                          metavar = "<serial baudrate>",
-                          help = "Serial port baudrate in Bits/s.")
+      group3 = parser.add_argument_group(title = 'Other options')
+      group3.add_argument("--delay",
+                          help = "Delay to wait for (serial) device to get ready (seconds|float).",
+                          type = float,
+                          default = 1.0,
+                          action = "store")
 
-      group3.add_argument("-p",
-                          "--port",
-                          default = 11,
-                          metavar = "<serial port>",
-                          help = 'Serial port to use (e.g. "11" for COM12 or "/dev/ttxACM0")')
-
-      group4 = parser.add_argument_group(title = 'Other options')
-      group4.add_argument("-t",
-                          "--truncate",
+      group3.add_argument("--linelength",
                           type = int,
                           default = 120,
                           metavar = "<line length>",
                           help = "Truncate display line length to given number of chars.")
 
-      group4.add_argument("-d",
+      group3.add_argument("-d",
                           "--debug",
                           help = "Enable debug output.",
                           action = "store_true")
-
-      group4.add_argument("--delay",
-                          help = "Delay to wait for device to get ready (seconds|float).",
-                          type = float,
-                          default = 1.0,
-                          action = "store")
 
       args = parser.parse_args()
 
@@ -658,7 +657,7 @@ class SrdpToolRunner(object):
 
       self.edsDirectories.append(pkg_resources.resource_filename("srdp", "eds"))
 
-      self._truncate = int(args.truncate)
+      self._truncate = int(args.linelength)
 
       if args.write:
          self._with = []
@@ -679,8 +678,24 @@ class SrdpToolRunner(object):
       else:
          self._with = None
 
-      self.baudrate = int(args.baud)
-      self.port = args.port
+
+      self._transportType = args.transport[0].strip().lower()
+
+      if self._transportType == 'serial':
+         s = args.transport[1].split(':')
+         self.port = s[0].strip().lower()
+         if len(s) > 1:
+            self.baudrate = int(s[1])
+            if self.baudrate not in [300, 1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400, 57600, 115200, 230400]:
+               raise Exception("invalid baudrate")
+      elif self._transportType == 'udp':
+         s = args.transport[1].split(':')
+         self.host = s[0].strip().lower()
+         if len(s) > 1:
+            self.port = int(s[1])
+      else:
+         raise Exception("invalid transport %s" % self._transportType)
+      
 
       if args.uuid:
          self.mode = 'uuid'
@@ -702,8 +717,6 @@ class SrdpToolRunner(object):
          raise Exception("logic error")
 
       
-   def startService(self):
-
       if self.mode == 'uuid':
 
          for i in xrange(self.modeArg):
@@ -736,10 +749,26 @@ class SrdpToolRunner(object):
             # on RaspberryPi, Serial-over-USB appears as /dev/ttyACM0
             pass
 
-         print "Connecting to serial port %s at %d baud .." % (self.port, self.baudrate)
-         self.serialProtocol = SrdpToolHostProtocol(debug = self.debug)
-         self.serialProtocol.runner = self
-         self.serialPort = SerialPortFix(self.serialProtocol, self.port, reactor, baudrate = self.baudrate)
+
+         if self._transportType == 'serial':
+
+            print "Connecting to serial port %s at %d baud .." % (self.port, self.baudrate)
+            
+            self.protocol = SrdpToolStreamProtocol(debug = self.debug)
+            self.protocol.runner = self
+            self.serialPort = SerialPortFix(self.protocol, self.port, reactor, baudrate = self.baudrate)
+
+         elif self._transportType == 'udp':
+
+            print "Connecting over UDP transport .."
+
+            self.protocol = SrdpToolDatagramProtocol(debug = self.debug)
+            self.protocol.runner = self
+            self.serialPort = None
+            reactor.listenUDP(1910, self.protocol)
+
+         else:
+            raise Exception("invalid transport %s" % self._transportType)
 
          return True
 

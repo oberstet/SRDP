@@ -19,7 +19,9 @@
 __all__ = ("SrdpException",
            "SrdpFrameHeader",
            "SrdpProtocol",
-           "SrdpHostProtocol",
+           #"SrdpHostProtocol",
+           "SrdpStreamProtocol",
+           "SrdpDatagramProtocol",
            "SrdpEds",
            "SrdpEdsDatabase",)
 
@@ -38,6 +40,17 @@ from twisted.python import log
 from twisted.internet.protocol import Protocol, DatagramProtocol
 from twisted.internet.defer import Deferred 
 from twisted.python.failure import Failure
+
+
+class SrdpException(Exception):
+
+   def __init__(self, data):
+      error_code = struct.unpack("<l", data)[0]
+      if SrdpFrameHeader.SRDP_ERR_DESC.has_key(error_code):
+         error_text = SrdpFrameHeader.SRDP_ERR_DESC[error_code]
+      else:
+         error_text = "SRDP error %d" % error_code
+      Exception.__init__(self, error_code, error_text)
 
 
 
@@ -93,6 +106,9 @@ class SrdpFrameHeader:
       self.position = position
       self.length = length
       self.crc16 = crc16
+
+      self.dataLength = 0
+      self.senderAddr = None
 
 
    def reset(self):
@@ -151,14 +167,66 @@ class SrdpFrameHeader:
       self.crc16 = t[5]
 
 
-
-class SrdpProtocol(Protocol):
+class SrdpDatagramProtocol(DatagramProtocol):
 
    def __init__(self, debug = False):
       self._debug = debug
-      self._chopup = False
       self._seq = 0
       self._pending = {}
+
+   def startProtocol(self):
+      self.transportReady()
+
+   def stopProtocol(self):
+      self.transportLost(None)
+
+
+   def _sendFrame(self, header, data = None):
+      header.crc16 = header.computeCrc(data)
+      if data:
+         wireData = header.serialize() + data
+      else:
+         wireData = header.serialize()
+
+#      self.transport.write(wireData, header.senderAddr)
+      self.transport.write(wireData, ('192.168.1.119', 1910))
+
+      if self._debug:
+         self._logFrame("SRDP frame sent", header, data)
+
+   def datagramReceived(self, datagram, addr):   
+      if self._debug:
+         log.msg("Octets received [data = %s]" % binascii.hexlify(data))
+
+      if len(datagram) < SrdpFrameHeader.SRDP_FRAME_HEADER_LEN:
+         raise Exception("invalid SRDP datagram (shorter than header)")
+
+      header = SrdpFrameHeader()
+      header.parse(datagram[0:SrdpFrameHeader.SRDP_FRAME_HEADER_LEN])
+
+      if (header.frametype, header.opcode) \
+         in [(SrdpFrameHeader.SRDP_FT_REQ, SrdpFrameHeader.SRDP_OP_SYNC),
+             (SrdpFrameHeader.SRDP_FT_REQ, SrdpFrameHeader.SRDP_OP_READ),
+             (SrdpFrameHeader.SRDP_FT_ACK, SrdpFrameHeader.SRDP_OP_WRITE)]:
+         header.dataLength = 0
+      else:
+         header.dataLength = header.length
+
+      if len(datagram) < SrdpFrameHeader.SRDP_FRAME_HEADER_LEN + header.dataLength:
+         raise Exception("invalid SRDP datagram (shorter than header+payload)")
+
+      data = datagram[SrdpFrameHeader.SRDP_FRAME_HEADER_LEN:]
+
+      header.senderAddr = addr
+
+      self._frameReceived(header, data)
+
+
+
+class SrdpStreamProtocol(Protocol):
+
+   def __init__(self, debug = False):
+      self._debug = debug
 
       self._received = []
       self._receivedNum = 0
@@ -167,8 +235,16 @@ class SrdpProtocol(Protocol):
       self._srdpFrameHeader = None
       self._srdpFrameData = None
 
+      self._chopup = False
       self._send_queue = deque()
       self._send_queue_triggered = False
+
+
+   def connectionMade(self):
+      self.transportReady()
+
+   def connectionLost(self, reason):
+      self.transportLost(reason)
 
 
    def _send(self):
@@ -199,77 +275,6 @@ class SrdpProtocol(Protocol):
          self.transport.write(data)
 
 
-   def dataReceived(self, data):
-      if self._debug:
-         log.msg("Octets received [data = %s]" % binascii.hexlify(data))
-      self._received.append(data)
-      self._receivedNum += len(data)
-      if self._receivedNum >= self._needed:
-         data = ''.join(self._received)
-         self._received = []
-         self._receiveFrame(data)
-
-
-   def _receiveFrame(self, data):
-      if self._srdpFrameHeader is None:
-         self._srdpFrameHeader = SrdpFrameHeader()
-         self._srdpFrameHeader.parse(data[0:SrdpFrameHeader.SRDP_FRAME_HEADER_LEN])
-         rest = data[SrdpFrameHeader.SRDP_FRAME_HEADER_LEN:]
-         if (self._srdpFrameHeader.frametype, self._srdpFrameHeader.opcode) \
-            in [(SrdpFrameHeader.SRDP_FT_REQ, SrdpFrameHeader.SRDP_OP_SYNC),
-                (SrdpFrameHeader.SRDP_FT_REQ, SrdpFrameHeader.SRDP_OP_READ),
-                (SrdpFrameHeader.SRDP_FT_ACK, SrdpFrameHeader.SRDP_OP_WRITE)]:
-            self._srdpFrameHeader.dataLength = 0
-         else:
-            self._srdpFrameHeader.dataLength = self._srdpFrameHeader.length
-         self._needed = self._srdpFrameHeader.dataLength
-      else:
-         if self._srdpFrameHeader.dataLength > 0:
-            self._srdpFrameData = data[0:self._srdpFrameHeader.dataLength]
-            rest = data[self._srdpFrameHeader.dataLength:]
-         else:
-            self._srdpFrameData = None
-            rest = data
-         self._frameReceived()
-
-      if len(rest) < self._needed:
-         self._received.append(rest)
-         self._receivedNum = len(rest)
-         # need to receive more data
-      else:
-         self._receiveFrame(rest)
-
-
-   def _logFrame(self, msg, header, data):
-      if data:
-         d = binascii.hexlify(data)
-      else:
-         d = ''
-      if len(d) > 64:
-         d = d[:64] + ".."
-      log.msg("%s [%s, data = '%s']" % (msg, header, d))
-
-
-   def _frameReceived(self):
-      if self._debug:
-         self._logFrame("SRDP frame received", self._srdpFrameHeader, self._srdpFrameData)
-
-      ## check frame CRC
-      ##
-      crc16 = self._srdpFrameHeader.computeCrc(self._srdpFrameData)
-      if crc16 != self._srdpFrameHeader.crc16:
-         print "CRC Error: computed = %s, received = %s" % (binascii.hexlify(struct.pack("<H", crc16)), binascii.hexlify(struct.pack("<H", self._srdpFrameHeader.crc16)))
-         # FIXME: send ERR
-      
-      self._processFrame(self._srdpFrameHeader, self._srdpFrameData)
-
-      ## reset incoming frame
-      ##
-      self._srdpFrameHeader = None
-      self._srdpFrameData = None
-      self._needed = SrdpFrameHeader.SRDP_FRAME_HEADER_LEN
-
-
    def _sendFrame(self, header, data = None):
       header.crc16 = header.computeCrc(data)
       if data:
@@ -283,19 +288,109 @@ class SrdpProtocol(Protocol):
 
 
 
-class SrdpException(Exception):
+   def dataReceived(self, data):
 
-   def __init__(self, data):
-      error_code = struct.unpack("<l", data)[0]
-      if SrdpFrameHeader.SRDP_ERR_DESC.has_key(error_code):
-         error_text = SrdpFrameHeader.SRDP_ERR_DESC[error_code]
+      if self._debug:
+         log.msg("Octets received [data = %s]" % binascii.hexlify(data))
+
+      ## buffer up received octets ..
+      ##
+      self._received.append(data)
+      self._receivedNum += len(data)
+
+      ## .. until we have enough to begin processing the frame
+      ##
+      if self._receivedNum >= self._needed:
+         data = ''.join(self._received)
+         self._received = []
+         self._receiveFrame(data)
+
+
+   def _receiveFrame(self, data):
+
+      if self._srdpFrameHeader is None:
+
+         ## awaiting frame header ..
+         ##
+         self._srdpFrameHeader = SrdpFrameHeader()
+         self._srdpFrameHeader.parse(data[0:SrdpFrameHeader.SRDP_FRAME_HEADER_LEN])
+
+         rest = data[SrdpFrameHeader.SRDP_FRAME_HEADER_LEN:]
+
+         if (self._srdpFrameHeader.frametype, self._srdpFrameHeader.opcode) \
+            in [(SrdpFrameHeader.SRDP_FT_REQ, SrdpFrameHeader.SRDP_OP_SYNC),
+                (SrdpFrameHeader.SRDP_FT_REQ, SrdpFrameHeader.SRDP_OP_READ),
+                (SrdpFrameHeader.SRDP_FT_ACK, SrdpFrameHeader.SRDP_OP_WRITE)]:
+            self._srdpFrameHeader.dataLength = 0
+         else:
+            self._srdpFrameHeader.dataLength = self._srdpFrameHeader.length
+
+         self._needed = self._srdpFrameHeader.dataLength
+
       else:
-         error_text = "SRDP error %d" % error_code
-      Exception.__init__(self, error_code, error_text)
+
+         ## got complete frame data. frame is ready to be processed.
+         ##
+         if self._srdpFrameHeader.dataLength > 0:
+            self._srdpFrameData = data[0:self._srdpFrameHeader.dataLength]
+            rest = data[self._srdpFrameHeader.dataLength:]
+         else:
+            self._srdpFrameData = None
+            rest = data
+
+         ## process SRDP frame and reset everything
+         ##
+         self._frameReceived(self._srdpFrameHeader, self._srdpFrameData)
+         self._srdpFrameHeader = None
+         self._srdpFrameData = None
+         self._needed = SrdpFrameHeader.SRDP_FRAME_HEADER_LEN
+
+      if len(rest) < self._needed:
+         ## need to receive more data to continue ..
+         ##
+         self._received.append(rest)
+         self._receivedNum = len(rest)
+      else:
+         ## process the rest of already received data
+         ##
+         self._receiveFrame(rest)
 
 
 
-class SrdpHostProtocol(SrdpProtocol):
+class SrdpProtocol(object):
+
+   def __init__(self, debug = False):
+      self._debug = debug
+      self._seq = 0
+      self._pending = {}
+
+
+   def _logFrame(self, msg, header, data):
+      if data:
+         d = binascii.hexlify(data)
+      else:
+         d = ''
+      if len(d) > 64:
+         d = d[:64] + ".."
+      log.msg("%s [%s, data = '%s']" % (msg, header, d))
+
+
+   def _frameReceived(self, frameHeader, frameData):
+      if self._debug:
+         self._logFrame("SRDP frame received", frameHeader, frameData)
+
+      ## check frame CRC
+      ##
+      crc16 = frameHeader.computeCrc(frameData)
+      if crc16 != frameHeader.crc16:
+         print "CRC Error: computed = %s, received = %s" % (binascii.hexlify(struct.pack("<H", crc16)), binascii.hexlify(struct.pack("<H", self._srdpFrameHeader.crc16)))
+         # FIXME: send ERR
+      
+      self._processFrame(frameHeader, frameData)
+
+
+
+#class SrdpHostProtocol(SrdpStreamProtocol, SrdpProtocol):
 
    def readRegister(self, device, register, position = 0, length = 0):
       self._seq += 1
