@@ -51,6 +51,12 @@ extern "C" {
 #define SRDP_ERR_INVALID_REG_POSLEN    -4
 #define SRDP_ERR_INVALID_REG_OP        -5
 
+// SRDP log levels
+//
+#define SRDP_LOGLEVEL_INFO    1
+#define SRDP_LOGLEVEL_WARNING 2
+#define SRDP_LOGLEVEL_ERROR   3
+
 // SRDP frame header length (fixed)
 //
 #define SRDP_FRAME_HEADER_LEN      12
@@ -78,6 +84,7 @@ extern "C" {
 #  include <stdint.h>
 #endif
 
+#include <string.h>
 
 // signed integer type large enough to hold any size_t value (which
 // are unsigned)
@@ -119,20 +126,18 @@ typedef int (*srdp_register_write) (void* userdata,
                                     int len,
                                     const uint8_t* data);
 
-#define SRDP_LOGLEVEL_INFO    1
-#define SRDP_LOGLEVEL_WARNING 2
-#define SRDP_LOGLEVEL_ERROR   3
 
 // Optional callback for SRDP library logging
 //
 typedef void (*srdp_log_message) (const char* msg, int level);
 
 
-#ifdef SRDP_DUMMY
+
+#ifdef SRDP_DEBUG_DUMMY
 
 typedef char srdp_channel_t;
 
-#else // SRDP_DUMMY
+#else // SRDP_DEBUG_DUMMY
 
 // SRDP frame header (API level: private)
 //
@@ -212,7 +217,7 @@ typedef struct {
 
 } srdp_channel_t;
 
-#endif // SRDP_DUMMY
+#endif // SRDP_DEBUG_DUMMY
 
 
 // Initialize SRDP channel. (API level: public)
@@ -240,7 +245,11 @@ int srdp_notify(srdp_channel_t* channel,
 //
 void srdp_loop(srdp_channel_t* channel);
 
+
+// Set output frame to string value.
+//
 int srdp_set_string(uint8_t* data, const char* str);
+
 
 #ifdef __cplusplus
 }

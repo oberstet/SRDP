@@ -11,3 +11,4 @@ eggs
 *.lib
 *.a
 *.o
+udp_adapter
