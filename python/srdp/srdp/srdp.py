@@ -35,7 +35,7 @@ from pprint import pprint
 
 #from twisted.internet import reactor
 from twisted.python import log
-from twisted.internet.protocol import Protocol
+from twisted.internet.protocol import Protocol, DatagramProtocol
 from twisted.internet.defer import Deferred 
 from twisted.python.failure import Failure
 
@@ -292,7 +292,6 @@ class SrdpException(Exception):
       else:
          error_text = "SRDP error %d" % error_code
       Exception.__init__(self, error_code, error_text)
-
 
 
 

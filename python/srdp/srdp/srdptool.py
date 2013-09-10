@@ -506,6 +506,42 @@ class SerialPortFix(SerialPort):
 
 
 
+from twisted.internet.protocol import DatagramProtocol
+
+
+class UdpClient(DatagramProtocol):
+
+   def __init__(self, ip, port, num = 10000, debug = False):
+      self._ip = ip
+      self._port = port
+      self._debug = debug
+      self._count = 0
+      self._num = num
+
+   def startProtocol(self):
+      print "started"
+      self.sendHello()
+
+   def sendHello(self):
+      for i in xrange(1):
+         self.transport.write("Hello!", (self._ip, self._port))
+         print "Hello!", (self._ip, self._port)
+      print
+      reactor.callLater(1, self.sendHello)
+
+   def datagramReceived(self, data, (host, port)):
+      if self._debug:
+         print "received %r from %s:%d" % (data, host, port)
+      if self._count < self._num:
+         self.transport.write(data, (host, port))
+         self._count += 1
+         if self._count % 1000 == 0:
+            print self._count
+      else:
+         reactor.stop()
+
+
+
 class SrdpToolRunner(object):
 
    def __init__(self):
