@@ -25,6 +25,10 @@ __all__ = ("SrdpException",
            "SrdpEds",
            "SrdpEdsDatabase",)
 
+from interfaces import ISrdpProvider, ISrdpChannel
+
+import zope
+from zope.interface import implementer
 
 import struct, binascii
 from collections import deque
@@ -167,32 +171,161 @@ class SrdpFrameHeader:
       self.crc16 = t[5]
 
 
-class SrdpDatagramProtocol(DatagramProtocol):
+@implementer(ISrdpChannel)
+class SrdpProtocol(object):
 
-   def __init__(self, debug = False):
+   def __init__(self, provider, debug = False):
+      if not ISrdpProvider.providedBy(provider):
+         raise Exception("provider must implement ISrdpProvider")
+
+      self._provider = provider
       self._debug = debug
+      self._isConnected = None
       self._seq = 0
       self._pending = {}
 
+
+   def _logFrame(self, msg, header, data):
+      if data:
+         d = binascii.hexlify(data)
+      else:
+         d = ''
+      if len(d) > 64:
+         d = d[:64] + ".."
+      log.msg("%s [%s, data = '%s']" % (msg, header, d))
+
+
+   def _frameReceived(self, frameHeader, frameData):
+      if self._debug:
+         self._logFrame("SRDP frame received", frameHeader, frameData)
+
+      ## check frame CRC
+      ##
+      crc16 = frameHeader.computeCrc(frameData)
+      if crc16 != frameHeader.crc16:
+         print "CRC Error: computed = %s, received = %s" % (binascii.hexlify(struct.pack("<H", crc16)), binascii.hexlify(struct.pack("<H", self._srdpFrameHeader.crc16)))
+         # FIXME: send ERR
+      
+      self._processFrame(frameHeader, frameData)
+
+
+   def readRegister(self, device, register, position = 0, length = 0):
+      if not self._isConnected:
+         raise Exception("cannot send register read request when not connected")
+
+      self._seq += 1
+      frame = SrdpFrameHeader(seq = self._seq,
+                              frametype = SrdpFrameHeader.SRDP_FT_REQ,
+                              opcode = SrdpFrameHeader.SRDP_OP_READ,
+                              device = device,
+                              register = register,
+                              position = position,
+                              length = length)
+      self._sendFrame(frame)
+      d = Deferred()
+      self._pending[self._seq] = d
+      return d
+
+
+   def writeRegister(self, device, register, data, position = 0):
+      if not self._isConnected:
+         raise Exception("cannot send register write request when not connected")
+
+      self._seq += 1
+      frame = SrdpFrameHeader(self._seq,
+                              frametype = SrdpFrameHeader.SRDP_FT_REQ,
+                              opcode = SrdpFrameHeader.SRDP_OP_WRITE,
+                              device = device,
+                              register = register,
+                              position = position,
+                              length = len(data))
+      self._sendFrame(frame, data)
+      d = Deferred()
+      self._pending[self._seq] = d
+      return d
+
+
+   def notifyRegister(self, device, register, position, length):
+
+      if not self._isConnected:
+         raise Exception("cannot send register change notification when not connected")
+
+      pass # FIXME: process and potential send ACK
+
+
+   def _processFrame(self, header, data):
+      if header.frametype == SrdpFrameHeader.SRDP_FT_REQ:
+
+         if header.opcode == SrdpFrameHeader.SRDP_OP_CHANGE:
+            res = self.onRegisterChange(header.device, header.register, header.position, data)
+
+         elif header.opcode == SrdpFrameHeader.SRDP_OP_READ:
+            pass
+
+         elif header.opcode == SrdpFrameHeader.SRDP_OP_WRITE:
+            pass
+
+
+      elif header.frametype in [SrdpFrameHeader.SRDP_FT_ACK, SrdpFrameHeader.SRDP_FT_ERR]:
+         if self._pending.has_key(header.seq):
+            if header.frametype == SrdpFrameHeader.SRDP_FT_ACK:
+               self._pending[header.seq].callback(data)
+            else:
+               self._pending[header.seq].errback(Failure(SrdpException(data)))
+            del self._pending[header.seq]
+         else:
+            log.msg("NO SUCH SEQ!")
+
+      else:
+         raise Exception("logic error")
+
+
+
+class SrdpDatagramProtocol(DatagramProtocol, SrdpProtocol):
+
+   def __init__(self, provider, addr = None, debug = False):
+      SrdpProtocol.__init__(self, provider, debug = debug)
+      self._addr = addr
+
+
+   def close(self):
+      self.transport.loseConnection()
+
+
    def startProtocol(self):
-      self.transportReady()
+      if self._addr:
+         self.transport.connect(*self._addr)
+         self._isConnected = True
+      else:
+         self._isConnected = False
+      self._provider.onChannelOpen(self)
 
    def stopProtocol(self):
-      self.transportLost(None)
+      self._provider.onChannelClose(None)
 
 
    def _sendFrame(self, header, data = None):
       header.crc16 = header.computeCrc(data)
+
       if data:
          wireData = header.serialize() + data
       else:
          wireData = header.serialize()
 
-#      self.transport.write(wireData, header.senderAddr)
-      self.transport.write(wireData, ('192.168.1.119', 1910))
+      if self._addr:
+         ## if this UDP socket is connected, our peer is fixed
+         ## and we don't provide a receiver address
+         ##
+         self.transport.write(wireData)
+      elif header.senderAddr:
+         ## if 
+         self.transport.write(wireData, header.senderAddr)
+      else:
+         raise Exception("logic error")
 
       if self._debug:
          self._logFrame("SRDP frame sent", header, data)
+
 
    def datagramReceived(self, datagram, addr):   
       if self._debug:
@@ -217,16 +350,19 @@ class SrdpDatagramProtocol(DatagramProtocol):
 
       data = datagram[SrdpFrameHeader.SRDP_FRAME_HEADER_LEN:]
 
+      ## note the datagram sender, so we can set the receiver in
+      ## the reply later
+      ##
       header.senderAddr = addr
 
       self._frameReceived(header, data)
 
 
 
-class SrdpStreamProtocol(Protocol):
+class SrdpStreamProtocol(Protocol, SrdpProtocol):
 
-   def __init__(self, debug = False):
-      self._debug = debug
+   def __init__(self, provider, debug = False):
+      SrdpProtocol.__init__(self, provider, debug = debug)
 
       self._received = []
       self._receivedNum = 0
@@ -240,11 +376,18 @@ class SrdpStreamProtocol(Protocol):
       self._send_queue_triggered = False
 
 
+   def close(self):
+      self.transport.loseConnection()
+
+
    def connectionMade(self):
-      self.transportReady()
+      self._isConnected = True
+      self._provider.onChannelOpen(self)
+
 
    def connectionLost(self, reason):
-      self.transportLost(reason)
+      self._isConnected = False
+      self._provider.onChannelClose(reason)
 
 
    def _send(self):
@@ -354,107 +497,6 @@ class SrdpStreamProtocol(Protocol):
          ## process the rest of already received data
          ##
          self._receiveFrame(rest)
-
-
-
-class SrdpProtocol(object):
-
-   def __init__(self, debug = False):
-      self._debug = debug
-      self._seq = 0
-      self._pending = {}
-
-
-   def _logFrame(self, msg, header, data):
-      if data:
-         d = binascii.hexlify(data)
-      else:
-         d = ''
-      if len(d) > 64:
-         d = d[:64] + ".."
-      log.msg("%s [%s, data = '%s']" % (msg, header, d))
-
-
-   def _frameReceived(self, frameHeader, frameData):
-      if self._debug:
-         self._logFrame("SRDP frame received", frameHeader, frameData)
-
-      ## check frame CRC
-      ##
-      crc16 = frameHeader.computeCrc(frameData)
-      if crc16 != frameHeader.crc16:
-         print "CRC Error: computed = %s, received = %s" % (binascii.hexlify(struct.pack("<H", crc16)), binascii.hexlify(struct.pack("<H", self._srdpFrameHeader.crc16)))
-         # FIXME: send ERR
-      
-      self._processFrame(frameHeader, frameData)
-
-
-
-#class SrdpHostProtocol(SrdpStreamProtocol, SrdpProtocol):
-
-   def readRegister(self, device, register, position = 0, length = 0):
-      self._seq += 1
-      frame = SrdpFrameHeader(seq = self._seq,
-                              frametype = SrdpFrameHeader.SRDP_FT_REQ,
-                              opcode = SrdpFrameHeader.SRDP_OP_READ,
-                              device = device,
-                              register = register,
-                              position = position,
-                              length = length)
-      self._sendFrame(frame)
-      d = Deferred()
-      self._pending[self._seq] = d
-      return d
-
-
-   def writeRegister(self, device, register, data, position = 0):
-      self._seq += 1
-      frame = SrdpFrameHeader(self._seq,
-                              frametype = SrdpFrameHeader.SRDP_FT_REQ,
-                              opcode = SrdpFrameHeader.SRDP_OP_WRITE,
-                              device = device,
-                              register = register,
-                              position = position,
-                              length = len(data))
-      self._sendFrame(frame, data)
-      d = Deferred()
-      self._pending[self._seq] = d
-      return d
-
-
-   def onRegisterChange(self, device, register, position, data):
-      pass
-
-
-   def _processFrame(self, header, data):
-      if header.frametype == SrdpFrameHeader.SRDP_FT_REQ and \
-         header.opcode == SrdpFrameHeader.SRDP_OP_CHANGE:
-         res = self.onRegisterChange(header.device, header.register, header.position, data)
-
-      if header.frametype in [SrdpFrameHeader.SRDP_FT_ACK, SrdpFrameHeader.SRDP_FT_ERR]:
-         if self._pending.has_key(header.seq):
-            if header.frametype == SrdpFrameHeader.SRDP_FT_ACK:
-               self._pending[header.seq].callback(data)
-            else:
-               self._pending[header.seq].errback(Failure(SrdpException(data)))
-            del self._pending[header.seq]
-         else:
-            log.msg("NO SUCH SEQ!")
-
-
-
-class SrdpDriverProtocol(SrdpProtocol):
-
-   def onRegisterRead(self, device, register, position, length):
-      pass
-
-
-   def onRegisterWrite(self, device, register, position, data):
-      pass
-
-
-   def changeRegister(self, device, register, position, data):
-      pass
 
 
 

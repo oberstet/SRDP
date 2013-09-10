@@ -46,6 +46,7 @@ setup (
    url = 'https://github.com/tavendo/SRDP',
    platforms = ('Any'),
    install_requires = ['setuptools',
+                       'zope.interface>=3.6.0',
                        'Twisted>=11.1',
                        'crcmod>=1.7',
                        'pyserial>=2.6'],

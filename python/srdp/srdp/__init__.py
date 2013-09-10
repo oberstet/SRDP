@@ -18,5 +18,6 @@
 
 from _version import __version__
 
+import interfaces
 import srdp
 import srdptool

@@ -52,6 +52,11 @@ from srdp import SrdpEdsDatabase, \
                  SrdpFrameHeader, \
                  SrdpException
 
+from interfaces import ISrdpProvider
+
+import zope
+from zope.interface import implementer
+
 
 
 def splitlen(seq, length):
@@ -128,28 +133,34 @@ def tabify(fields, formats, truncate = 120, filler = ['-', '+']):
       return ' | '.join(r)
 
 
-
-class SrdpToolProtocol(SrdpProtocol):
+@implementer(ISrdpProvider)
+class SrdpToolProvider(object):
 
    IDX_REG_ID = 1
    IDX_REG_EDS = 2
    IDX_REG_DEVICES = 5
 
+   def __init__(self, config, edsDb, debug = False):
+      self._config = config
+      self._edsDb = edsDb
+      self._debug = debug
+
+
    @inlineCallbacks
    def getUuid(self, device = 1):
-      res = yield self.readRegister(device, self.IDX_REG_ID)
+      res = yield self.channel.readRegister(device, self.IDX_REG_ID)
       returnValue(res)
 
 
    @inlineCallbacks
    def getEdsUri(self, device = 1):
-      res = yield self.readRegister(device, self.IDX_REG_EDS)
+      res = yield self.channel.readRegister(device, self.IDX_REG_EDS)
       returnValue(res[2:])
 
 
    @inlineCallbacks
    def getDevices(self):
-      res = yield self.readRegister(1, self.IDX_REG_DEVICES)
+      res = yield self.channel.readRegister(1, self.IDX_REG_DEVICES)
       count = struct.unpack("<H", res[:2])
       val = list(struct.unpack("<%dH" % count, res[2:]))
       returnValue(val)
@@ -158,7 +169,7 @@ class SrdpToolProtocol(SrdpProtocol):
    def getDeviceEdsMap(self):
       dret = Deferred()
 
-      d = self.readRegister(1, self.IDX_REG_DEVICES)
+      d = self.channel.readRegister(1, self.IDX_REG_DEVICES)
 
       def _getDeviceListSuccess(res):
          count = struct.unpack("<H", res[:2])
@@ -167,7 +178,7 @@ class SrdpToolProtocol(SrdpProtocol):
 
          dl = []
          for i in devices:
-            dl.append(self.readRegister(i, self.IDX_REG_EDS))
+            dl.append(self.channel.readRegister(i, self.IDX_REG_EDS))
 
          dlist = DeferredList(dl)
 
@@ -188,7 +199,7 @@ class SrdpToolProtocol(SrdpProtocol):
    def getDeviceUuidMap(self):
       dret = Deferred()
 
-      d = self.readRegister(1, self.IDX_REG_DEVICES)
+      d = self.channel.readRegister(1, self.IDX_REG_DEVICES)
 
       def _getDeviceListSuccess(res):
          count = struct.unpack("<H", res[:2])
@@ -197,7 +208,7 @@ class SrdpToolProtocol(SrdpProtocol):
 
          dl = []
          for i in devices:
-            dl.append(self.readRegister(i, self.IDX_REG_ID))
+            dl.append(self.channel.readRegister(i, self.IDX_REG_ID))
 
          dlist = DeferredList(dl)
 
@@ -233,22 +244,22 @@ class SrdpToolProtocol(SrdpProtocol):
          print
 
          LINEFORMAT = ['r7', 'l32', 'l*', 'c9']
-         print tabify(None, LINEFORMAT, self.runner._truncate)
-         print tabify(["Device", "UUID", "EDS URI", "Registers"], LINEFORMAT, self.runner._truncate)
-         print tabify(None, LINEFORMAT, self.runner._truncate)
+         print tabify(None, LINEFORMAT, self.LINELENGTH)
+         print tabify(["Device", "UUID", "EDS URI", "Registers"], LINEFORMAT, self.LINELENGTH)
+         print tabify(None, LINEFORMAT, self.LINELENGTH)
 
          for i in sorted(em.keys()):
             if i == 2:
-               print tabify(None, LINEFORMAT, self.runner._truncate, filler = ['.', '|'])
-            eds = self.runner.edsDatabase.getEdsByUri(em[i])
-            print tabify([i, binascii.hexlify(im[i]), em[i], len(eds.registersByIndex)], LINEFORMAT, self.runner._truncate)
+               print tabify(None, LINEFORMAT, self.LINELENGTH, filler = ['.', '|'])
+            eds = self._edsDb.getEdsByUri(em[i])
+            print tabify([i, binascii.hexlify(im[i]), em[i], len(eds.registersByIndex)], LINEFORMAT, self.LINELENGTH)
 
-         print tabify(None, LINEFORMAT, self.runner._truncate)
+         print tabify(None, LINEFORMAT, self.LINELENGTH)
          print
-      except Exception, e:
-         raise e
+      #except Exception, e:
+      #   raise e
       finally:
-         self.transport.loseConnection()
+         self.channel.close()
 
 
    @inlineCallbacks
@@ -269,7 +280,7 @@ class SrdpToolProtocol(SrdpProtocol):
          print "Device EDS URI : %s" % (edsUri)
          print
 
-         eds = self.runner.edsDatabase.getEdsByUri(edsUri)
+         eds = self._edsDb.getEdsByUri(edsUri)
          if eds is None:
             raise Exception("EDS for device not in database")
 
@@ -278,15 +289,15 @@ class SrdpToolProtocol(SrdpProtocol):
 
          LINEFORMAT = ["r9", "l30", "l10", "l8", "l8", "l8", "l10", "l*"]
 
-         print tabify(None, LINEFORMAT, self.runner._truncate)
-         print tabify(["Register", "Path", "Access", "Optional", "Count", "Type", "Component", "Description"], LINEFORMAT, self.runner._truncate)
-         print tabify(None, LINEFORMAT, self.runner._truncate)
+         print tabify(None, LINEFORMAT, self.LINELENGTH)
+         print tabify(["Register", "Path", "Access", "Optional", "Count", "Type", "Component", "Description"], LINEFORMAT, self.LINELENGTH)
+         print tabify(None, LINEFORMAT, self.LINELENGTH)
 
          sysRegsDone = False
          for k in sorted(eds.registersByIndex.keys()):
 
             if not sysRegsDone and k >= 1024:
-               print tabify(None, LINEFORMAT, self.runner._truncate, filler = ['.', '|'])
+               print tabify(None, LINEFORMAT, self.LINELENGTH, filler = ['.', '|'])
                sysRegsDone = True
 
             reg = eds.registersByIndex[k]
@@ -303,7 +314,7 @@ class SrdpToolProtocol(SrdpProtocol):
                           "",
                           reg['desc']],
                           LINEFORMAT,
-                          self.runner._truncate)
+                          self.LINELENGTH)
             if rtype == 'dict:':
                for att in reg['type']:
                   print tabify(["",
@@ -315,14 +326,14 @@ class SrdpToolProtocol(SrdpProtocol):
                                 att["field"],
                                 att["desc"]],
                                 LINEFORMAT,
-                                self.runner._truncate)
+                                self.LINELENGTH)
 
-         print tabify(None, LINEFORMAT, self.runner._truncate)
+         print tabify(None, LINEFORMAT, self.LINELENGTH)
          print
 
       except Exception, e:
          print "Error:", e
-      self.transport.loseConnection()
+      self.channel.close()
 
 
    def writeRegistersAsync(self, device, eds, items):
@@ -330,8 +341,8 @@ class SrdpToolProtocol(SrdpProtocol):
       for reg, value in items:
          register = eds.getRegister(reg)
          data = eds.serialize(reg, value)
-         self.writeRegister(device, register['index'], data)
-         dl.append(self.writeRegister(device, register['index'], data))
+         self.channel.writeRegister(device, register['index'], data)
+         dl.append(self.channel.writeRegister(device, register['index'], data))
       return DeferredList(dl)
 
 
@@ -341,7 +352,7 @@ class SrdpToolProtocol(SrdpProtocol):
          register = eds.getRegister(reg)
          data = eds.serialize(reg, value)
          #res = yield self.writeRegister(device, register['index'], data)
-         self.writeRegister(device, register['index'], data)
+         self.channel.writeRegister(device, register['index'], data)
          #print "*", res
 
 
@@ -363,7 +374,7 @@ class SrdpToolProtocol(SrdpProtocol):
          print "Device EDS URI : %s" % (edsUri)
          print
 
-         eds = self.runner.edsDatabase.getEdsByUri(edsUri)
+         eds = self._edsDb.getEdsByUri(edsUri)
          if eds is None:
             raise Exception("EDS for device not in database")
 
@@ -372,15 +383,15 @@ class SrdpToolProtocol(SrdpProtocol):
 
          LINEFORMAT = ["r9", "l30", "l*"]
 
-         print tabify(None, LINEFORMAT, self.runner._truncate)
-         print tabify(["Register", "Path", "Current Value"], LINEFORMAT, self.runner._truncate)
-         print tabify(None, LINEFORMAT, self.runner._truncate)
+         print tabify(None, LINEFORMAT, self.LINELENGTH)
+         print tabify(["Register", "Path", "Current Value"], LINEFORMAT, self.LINELENGTH)
+         print tabify(None, LINEFORMAT, self.LINELENGTH)
 
          sysRegsDone = False
          for k in sorted(eds.registersByIndex.keys()):
 
             if not sysRegsDone and k >= 1024:
-               print tabify(None, LINEFORMAT, self.runner._truncate, filler = ['.', '|'])
+               print tabify(None, LINEFORMAT, self.LINELENGTH, filler = ['.', '|'])
                sysRegsDone = True
 
             reg = eds.registersByIndex[k]
@@ -389,14 +400,14 @@ class SrdpToolProtocol(SrdpProtocol):
                   data = yield self.readRegister(device, reg['index'])
                except Exception, e:
                   if reg['optional'] and e.args[0] == SrdpFrameHeader.SRDP_ERR_NO_SUCH_REGISTER:
-                     print tabify([k, reg['path'], '- (not implemented)'], LINEFORMAT, self.runner._truncate)
+                     print tabify([k, reg['path'], '- (not implemented)'], LINEFORMAT, self.LINELENGTH)
                   else:
-                     print tabify([k, reg['path'], 'Error: %s.' % e.args[1]], LINEFORMAT, self.runner._truncate)
+                     print tabify([k, reg['path'], 'Error: %s.' % e.args[1]], LINEFORMAT, self.LINELENGTH)
                else:
                   val = eds.unserialize(k, data)
-                  print tabify([k, reg['path'], val], LINEFORMAT, self.runner._truncate)
+                  print tabify([k, reg['path'], val], LINEFORMAT, self.LINELENGTH)
 
-         print tabify(None, LINEFORMAT, self.runner._truncate)
+         print tabify(None, LINEFORMAT, self.LINELENGTH)
          print
 
       except Exception, e:
@@ -405,7 +416,7 @@ class SrdpToolProtocol(SrdpProtocol):
          print
 
       finally:
-         self.transport.loseConnection()
+         self.channel.close()
 
 
    @inlineCallbacks
@@ -425,7 +436,7 @@ class SrdpToolProtocol(SrdpProtocol):
          print "Device EDS URI : %s" % (edsUri)
          print
 
-         eds = self.runner.edsDatabase.getEdsByUri(edsUri)
+         eds = self._edsDb.getEdsByUri(edsUri)
          if eds is None:
             raise Exception("EDS for device not in database")
 
@@ -436,9 +447,9 @@ class SrdpToolProtocol(SrdpProtocol):
          self.LINES = 0
 
          def _printHeader():
-            print tabify(None, LINEFORMAT, self.runner._truncate)
-            print tabify(["Register", "Path", "Current Value"], LINEFORMAT, self.runner._truncate)
-            print tabify(None, LINEFORMAT, self.runner._truncate)
+            print tabify(None, LINEFORMAT, self.LINELENGTH)
+            print tabify(["Register", "Path", "Current Value"], LINEFORMAT, self.LINELENGTH)
+            print tabify(None, LINEFORMAT, self.LINELENGTH)
 
          _printHeader()
 
@@ -448,7 +459,7 @@ class SrdpToolProtocol(SrdpProtocol):
                _printHeader()
             reg = eds.getRegister(register)
             val = eds.unserialize(register, data)
-            print tabify([reg['index'], reg['path'], val], LINEFORMAT, self.runner._truncate)
+            print tabify([reg['index'], reg['path'], val], LINEFORMAT, self.LINELENGTH)
 
          self.onRegisterChange = _onRegisterChange
 
@@ -461,46 +472,39 @@ class SrdpToolProtocol(SrdpProtocol):
          print
 
       #finally:
-      #   self.transport.loseConnection()
+      #   self.loseTransport()
 
 
-   def transportReady(self):
+   def onChannelOpen(self, channel):
       print 'Serial device connected.'
+      self.channel = channel
 
-      delay = self.runner.delay
+      delay = self._config['delay']
       print "Giving the device %s seconds to get ready .." % delay
 
-      if self.runner.mode == 'show':
-         reactor.callLater(delay, self.showDevice, device = int(self.runner.modeArg))
-      elif self.runner.mode == 'read':
-         reactor.callLater(delay, self.readDevice, device = int(self.runner.modeArg))
-      elif self.runner.mode == 'list':
+      mode = self._config['mode']
+      modearg = self._config['modearg']
+
+      self.LINELENGTH = self._config['linelength']
+
+      if mode == 'show':
+         reactor.callLater(delay, self.showDevice, device = int(modearg))
+      elif mode == 'read':
+         reactor.callLater(delay, self.readDevice, device = int(modearg))
+      elif mode == 'list':
          reactor.callLater(delay, self.listDevices)
-      elif self.runner.mode == 'monitor':
-         reactor.callLater(delay, self.monitorDevice, device = int(self.runner.modeArg))
+      elif mode == 'monitor':
+         reactor.callLater(delay, self.monitorDevice, device = int(modearg))
       else:
-         raise Exception("mode '%s' not implemented" % self.runner.mode)
+         raise Exception("mode '%s' not implemented" % mode)
 
 
-   def transportLost(self, reason):
+   def onChannelClose(self, reason):
       print 'Serial device disconnected.'
       if self._debug:
          log.msg(reason)
       reactor.stop()
 
-
-class SrdpToolStreamProtocol(SrdpToolProtocol, SrdpStreamProtocol):
-
-   def __init__(self, *args, **kwargs):
-      SrdpToolProtocol.__init__(self, *args, **kwargs)
-      SrdpStreamProtocol.__init__(self, *args, **kwargs)
-
-
-class SrdpToolDatagramProtocol(SrdpToolProtocol, SrdpDatagramProtocol):
-
-   def __init__(self, *args, **kwargs):
-      SrdpToolProtocol.__init__(self, *args, **kwargs)
-      SrdpDatagramProtocol.__init__(self, *args, **kwargs)
 
 
 class SerialPortFix(SerialPort):
@@ -520,45 +524,10 @@ class SerialPortFix(SerialPort):
 
 
 
-from twisted.internet.protocol import DatagramProtocol
-
-
-class UdpClient(DatagramProtocol):
-
-   def __init__(self, ip, port, num = 10000, debug = False):
-      self._ip = ip
-      self._port = port
-      self._debug = debug
-      self._count = 0
-      self._num = num
-
-   def startProtocol(self):
-      print "started"
-      self.sendHello()
-
-   def sendHello(self):
-      for i in xrange(1):
-         self.transport.write("Hello!", (self._ip, self._port))
-         print "Hello!", (self._ip, self._port)
-      print
-      reactor.callLater(1, self.sendHello)
-
-   def datagramReceived(self, data, (host, port)):
-      if self._debug:
-         print "received %r from %s:%d" % (data, host, port)
-      if self._count < self._num:
-         self.transport.write(data, (host, port))
-         self._count += 1
-         if self._count % 1000 == 0:
-            print self._count
-      else:
-         reactor.stop()
-
-
 
 class SrdpToolRunner(object):
 
-   def startService(self):
+   def argparse(self):
 
       ## parse command line args
       ##
@@ -643,26 +612,34 @@ class SrdpToolRunner(object):
 
       args = parser.parse_args()
 
-      self.delay = args.delay
-
-      self.debug = args.debug
-      if self.debug:
+      ## debug output
+      ##
+      debug = args.debug
+      if debug:
          log.startLogging(sys.stdout)
 
-      self.edsDirectories = []
+      ## delay main action
+      ##
+      delay = args.delay
 
+      ## load EDS files from these directories
+      ##
+      edsDirectories = []
       if args.eds:
          for e in args.eds:
-            self.edsDirectories.append(os.path.abspath(e))
+            edsDirectories.append(os.path.abspath(e))
+      edsDirectories.append(pkg_resources.resource_filename("srdp", "eds"))
 
-      self.edsDirectories.append(pkg_resources.resource_filename("srdp", "eds"))
+      ## truncate line length in shell output
+      ##
+      linelength = int(args.linelength)
 
-      self._truncate = int(args.linelength)
-
+      ## write these values to register before main action
+      ##
+      write = None
       if args.write:
-         self._with = []
+         write = []
          for reg, val in args.write:
-            print reg, val
             try:
                reg = int(reg)
             except:
@@ -674,101 +651,129 @@ class SrdpToolRunner(object):
                val = json.loads(val)
             except Exception, e:
                raise e
-            self._with.append([reg, val])
-      else:
-         self._with = None
+            write.append([reg, val])
 
-
-      self._transportType = args.transport[0].strip().lower()
-
-      if self._transportType == 'serial':
+      ## SRDP transport
+      ##
+      transport = args.transport[0].strip().lower()
+      host = None
+      port = None
+      baudrate = None
+      if transport == 'serial':
          s = args.transport[1].split(':')
-         self.port = s[0].strip().lower()
+         port = s[0].strip().lower()
+         try:
+            port = int(port)
+         except:
+            # on RaspberryPi, Serial-over-USB appears as /dev/ttyACM0
+            pass
+         baudrate = 115200
          if len(s) > 1:
-            self.baudrate = int(s[1])
-            if self.baudrate not in [300, 1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400, 57600, 115200, 230400]:
+            baudrate = int(s[1])
+            if baudrate not in [300, 1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400, 57600, 115200, 230400]:
                raise Exception("invalid baudrate")
-      elif self._transportType == 'udp':
+      elif transport == 'udp':
          s = args.transport[1].split(':')
-         self.host = s[0].strip().lower()
+         host = s[0].strip().lower()
+         port = 1910
          if len(s) > 1:
-            self.port = int(s[1])
+            port = int(s[1])
       else:
-         raise Exception("invalid transport %s" % self._transportType)
+         raise Exception("invalid transport %s" % transport)
       
-
+      ## run mode
+      ##
+      mode = None
+      modeArg = None
       if args.uuid:
-         self.mode = 'uuid'
-         self.modeArg = int(args.uuid)
+         mode = 'uuid'
+         modeArg = int(args.uuid)
       elif args.check:
-         self.mode = 'check'
+         mode = 'check'
       elif args.list:
-         self.mode = 'list'
+         mode = 'list'
       elif args.show:
-         self.mode = 'show'
-         self.modeArg = int(args.show)
+         mode = 'show'
+         modeArg = int(args.show)
       elif args.read:
-         self.mode = 'read'
-         self.modeArg = int(args.read)
+         mode = 'read'
+         modeArg = int(args.read)
       elif args.monitor:
-         self.mode = 'monitor'
-         self.modeArg = int(args.monitor)
+         mode = 'monitor'
+         modeArg = int(args.monitor)
       else:
          raise Exception("logic error")
 
-      
-      if self.mode == 'uuid':
+      config = {}
+      config['debug'] = debug
+      config['transport'] = transport
+      config['mode'] = mode
+      config['modearg'] = modeArg
+      config['delay'] = delay
+      config['edsdirs'] = edsDirectories
+      config['write'] = write
+      config['host'] = host
+      config['port'] = port
+      config['baudrate'] = baudrate
+      config['linelength'] = linelength
 
-         for i in xrange(self.modeArg):
+      return config
+
+
+   def startService(self):
+
+      config = self.argparse()
+
+      ## do it ..
+      ##
+      if config['mode'] == 'uuid':
+
+         for i in xrange(config['modearg']):
             u = uuid.uuid4()
             print
             print "UUID    :", u
             print "HEX     :", u.hex
             print "C/C++   :", '{' + ', '.join(['0x' + x for x in splitlen(u.hex, 2)]) + '}'
+
          return False
 
-      elif self.mode in ['check', 'list', 'show', 'read', 'monitor']:
+      elif config['mode'] in ['check', 'list', 'show', 'read', 'monitor']:
 
-         self.edsDatabase = SrdpEdsDatabase(debug = self.debug)
+         edsDb = SrdpEdsDatabase(debug = config['debug'])
 
          total = 0
-         for d in self.edsDirectories:
-            l = self.edsDatabase.loadFromDir(d)
+         for d in config['edsdirs']:
+            l = edsDb.loadFromDir(d)
             total += l
             print "Ok: loaded and checked %d EDS files from %s" % (l, d)
 
-         l = self.edsDatabase.check()
+         l = edsDb.check()
          print "EDS database with %d objects initiated." % l
 
-         if self.mode == 'check':
+         if config['mode'] == 'check':
             return False
 
-         try:
-            self.port = int(self.port)
-         except:
-            # on RaspberryPi, Serial-over-USB appears as /dev/ttyACM0
-            pass
+         ## complex modes ..
+         ##
+         srdptool = SrdpToolProvider(config = config, edsDb = edsDb, debug = config['debug'])
 
+         if config['transport'] == 'serial':
 
-         if self._transportType == 'serial':
-
-            print "Connecting to serial port %s at %d baud .." % (self.port, self.baudrate)
+            print "Connecting to serial port %s at %d baud .." % (config['port'], config['baudrate'])
             
-            self.protocol = SrdpToolStreamProtocol(debug = self.debug)
-            self.protocol.runner = self
-            self.serialPort = SerialPortFix(self.protocol, self.port, reactor, baudrate = self.baudrate)
+            protocol = SrdpStreamProtocol(provider = srdptool, debug = config['debug'])
+            serialPort = SerialPortFix(protocol, config['port'], reactor, baudrate = config['baudrate'])
 
-         elif self._transportType == 'udp':
+         elif config['transport'] == 'udp':
 
             print "Connecting over UDP transport .."
 
-            self.protocol = SrdpToolDatagramProtocol(debug = self.debug)
-            self.protocol.runner = self
-            self.serialPort = None
-            reactor.listenUDP(1910, self.protocol)
+            protocol = SrdpDatagramProtocol(provider = srdptool, debug = config['debug'])
+            protocol._addr = (config['host'], config['port'])
+            reactor.listenUDP(config['port'], protocol)
 
          else:
-            raise Exception("invalid transport %s" % self._transportType)
+            raise Exception("logic error")
 
          return True
 
@@ -782,6 +787,7 @@ def run():
    if runner.startService():
       reactor.run()
 
-   
+
+
 if __name__ == '__main__':
    run()
