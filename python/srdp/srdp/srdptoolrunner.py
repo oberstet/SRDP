@@ -26,9 +26,9 @@ from twisted.python import log
 from twisted.internet.serialport import SerialPort
 
 from _version import __version__
-from srdp import SrdpEdsDatabase, \
-                 SrdpStreamProtocol, \
-                 SrdpDatagramProtocol
+
+from srdp import SrdpStreamProtocol, SrdpDatagramProtocol
+from eds import SrdpEdsDatabase
 
 from srdptoolprovider import SrdpToolProvider
 
@@ -188,7 +188,7 @@ class SrdpToolRunner(object):
       baudrate = None
       if transport == 'serial':
          s = args.transport[1].split(':')
-         port = s[0].strip().lower()
+         port = s[0].strip()
          try:
             port = int(port)
          except:
@@ -288,17 +288,16 @@ class SrdpToolRunner(object):
 
          if config['transport'] == 'serial':
 
-            print "Connecting to serial port %s at %d baud .." % (config['port'], config['baudrate'])
+            print "SRDP-over-Serial - connecting to %s at %d baud .." % (config['port'], config['baudrate'])
             
             protocol = SrdpStreamProtocol(provider = srdptool, debug = config['debug'])
             serialPort = SerialPortFix(protocol, config['port'], reactor, baudrate = config['baudrate'])
 
          elif config['transport'] == 'udp':
 
-            print "Connecting over UDP transport .."
+            print "SRDP-over UDP - connecting to %s:%d .." % (config['host'], config['port'])
 
-            protocol = SrdpDatagramProtocol(provider = srdptool, debug = config['debug'])
-            protocol._addr = (config['host'], config['port'])
+            protocol = SrdpDatagramProtocol(provider = srdptool, addr = (config['host'], config['port']), debug = config['debug'])
             reactor.listenUDP(config['port'], protocol)
 
          else:

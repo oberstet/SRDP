@@ -18,10 +18,10 @@
 
 __all__ = ('SrdpToolProvider',)
 
-
 import struct, binascii
 
-
+import zope
+from zope.interface import implementer
 
 from twisted.internet import reactor
 from twisted.python import log
@@ -31,11 +31,7 @@ from twisted.internet.defer import Deferred, \
                                    inlineCallbacks
 
 from srdp import SrdpFrameHeader
-
 from interfaces import ISrdpProvider
-
-import zope
-from zope.interface import implementer
 
 
 
