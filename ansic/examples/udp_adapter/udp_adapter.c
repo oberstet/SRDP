@@ -95,10 +95,78 @@ ssize_t transport_write (void* userdata, const uint8_t* data, size_t len) {
 }
 
 
+// EDS URI for the adapter
+//
+#define ADAPTER_EDS_URI    "http://eds.tavendo.com/adapter/arduino-demoboard"
+
+// Optional adapter information
+//
+#define ADAPTER_HW_VERSION "Arduino Mega 2560"
+#define ADAPTER_SW_VERSION "V1.0"
+
+// UUID of the adapter
+//
+static const uint8_t ADAPTER_UUID[] = {0xa4, 0x10, 0x4a, 0x89, 0x8d, 0xf1, 0x46, 0xe5, 0xa6, 0x4c, 0x3b, 0xc7, 0x37, 0xdf, 0xd2, 0xf4};
+
+// Device index of adapter
+//
+#define ADAPTER_DEVICE_INDEX     1
+
+// Standard registers for adapter
+//
+#define ADAPTER_REGISTER_INDEX_UUID          1
+#define ADAPTER_REGISTER_INDEX_EDS           2
+#define ADAPTER_REGISTER_INDEX_HW_VERSION    3
+#define ADAPTER_REGISTER_INDEX_SW_VERSION    4
+#define ADAPTER_REGISTER_INDEX_DEVICES       5
+
+
 // Register read handler called when host requests to read a register
 //
 int register_read (void* userdata, int dev, int reg, int pos, int len, uint8_t* data) {
-   return SRDP_ERR_NOT_IMPLEMENTED;
+
+   printf("register_read(): Device %d, Register %d, Position %d, Length %d", dev, reg, pos, len);
+
+   switch (dev) {
+
+      case ADAPTER_DEVICE_INDEX:
+         switch (reg) {
+
+            // mandatory adapter register with adapter UUID
+            //
+            case ADAPTER_REGISTER_INDEX_UUID:
+               memcpy(data, ADAPTER_UUID, sizeof(ADAPTER_UUID));
+               return sizeof(ADAPTER_UUID);
+
+            // mandatory adapter register with adapter EDS URI
+            //
+            case ADAPTER_REGISTER_INDEX_EDS:
+               return srdp_set_string(data, ADAPTER_EDS_URI);
+
+            // optional adapter register with hardware version
+            //
+            case ADAPTER_REGISTER_INDEX_HW_VERSION:
+               return srdp_set_string(data, ADAPTER_HW_VERSION);
+
+            // optional adapter register with software version
+            //
+            case ADAPTER_REGISTER_INDEX_SW_VERSION:
+               return srdp_set_string(data, ADAPTER_SW_VERSION);
+
+            // mandatory adapter register with list of connected devices
+            //
+            case ADAPTER_REGISTER_INDEX_DEVICES:
+               // for our board, the list of connected devices is fixed/static
+               *((uint16_t*) (data + 0)) = 0;
+               return 2;
+
+            default:
+               return SRDP_ERR_NO_SUCH_REGISTER;
+         }
+
+      default:
+         return SRDP_ERR_NO_SUCH_DEVICE;
+   }
 }
 
 

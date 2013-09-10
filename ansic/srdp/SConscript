@@ -7,7 +7,7 @@ localenv = env.Clone()
 # SRDP_CRC16_BIG_AND_FAST
 # SRDP_FRAME_DATA_MAX_LEN
 #
-localenv.Append(CPPDEFINES = ['SRDP_DEBUG_TRANSPORT_ECHO'])
+#localenv.Append(CPPDEFINES = ['SRDP_DEBUG_TRANSPORT_ECHO'])
 
 srdp = localenv.StaticLibrary('srdp', ['srdp.c'])
 
