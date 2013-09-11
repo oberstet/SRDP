@@ -173,6 +173,7 @@ class SrdpProtocol(object):
          raise Exception("provider must implement ISrdpProvider")
 
       self._provider = provider
+      self._provider.channel = self
       self._debug = debug
       self._isConnected = None
       self._seq = 0

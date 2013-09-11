@@ -21,6 +21,7 @@ from _version import __version__
 import interfaces
 import eds
 import srdp
+import srdpprovider
 import srdptool
 import srdptoolprovider
 import srdptoolrunner
