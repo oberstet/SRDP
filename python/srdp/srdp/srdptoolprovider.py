@@ -460,4 +460,5 @@ class SrdpToolProvider(object):
          self.onRegisterChange = _onRegisterChange
 
       finally:
-         self.channel.close()
+         #self.channel.close()
+         print "Keeping channel open and listening for register change notificiations. Hit Ctrl-C/D/Z to stop."
