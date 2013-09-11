@@ -115,6 +115,42 @@ class SrdpToolProvider(object):
       self._debug = debug
 
 
+   def onChannelOpen(self, channel):
+      print 'Channel open ..'
+      self.channel = channel
+
+      if self._config['transport'] == 'serial':
+         delay = self._config['delay']
+      else:
+         delay = None
+
+      mode = self._config['mode']
+      modearg = self._config['modearg']
+
+      self.LINELENGTH = self._config['linelength']
+
+      cmdmap = {'show': self.showDevice,
+                'read': self.readDevice,
+                'list': self.listDevices,
+                'monitor': self.monitorDevice}
+
+      if cmdmap.has_key(mode):
+         if delay:
+            print "Giving the device %s seconds to get ready .." % delay
+            reactor.callLater(delay, cmdmap[mode], modearg)
+         else:
+            cmdmap[mode](modearg)
+      else:
+         raise Exception("mode '%s' not implemented" % mode)
+
+
+   def onChannelClose(self, reason):
+      print 'Channel closed.'
+      if self._debug:
+         log.msg(reason)
+      reactor.stop()
+
+
    @inlineCallbacks
    def getUuid(self, device = 1):
       res = yield self.channel.readRegister(device, self.IDX_REG_ID)
@@ -423,47 +459,5 @@ class SrdpToolProvider(object):
 
          self.onRegisterChange = _onRegisterChange
 
-         if self._config['write']:
-            res = self.writeRegisters(device, eds, self._config['write'])
-
-      except Exception, e:
-         print
-         print "Error:", e
-         print
+      finally:
          self.channel.close()
-
-
-   def onChannelOpen(self, channel):
-      print 'Channel open ..'
-      self.channel = channel
-
-      if self._config['transport'] == 'serial':
-         delay = self._config['delay']
-      else:
-         delay = None
-
-      mode = self._config['mode']
-      modearg = self._config['modearg']
-
-      self.LINELENGTH = self._config['linelength']
-
-      cmdmap = {'show': self.showDevice,
-                'read': self.readDevice,
-                'list': self.listDevices,
-                'monitor': self.monitorDevice}
-
-      if cmdmap.has_key(mode):
-         if delay:
-            print "Giving the device %s seconds to get ready .." % delay
-            reactor.callLater(delay, cmdmap[mode], modearg)
-         else:
-            cmdmap[mode](modearg)
-      else:
-         raise Exception("mode '%s' not implemented" % mode)
-
-
-   def onChannelClose(self, reason):
-      print 'Channel closed.'
-      if self._debug:
-         log.msg(reason)
-      reactor.stop()

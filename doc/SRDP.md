@@ -41,6 +41,15 @@ A Modbus master hardware connected to a small Linux device (e.g. RaspberryPi). A
  * [Datagram Transport Layer Security](http://en.wikipedia.org/wiki/Datagram_Transport_Layer_Security)
  * [The 6LoWPAN Format](http://www.mi.fu-berlin.de/inf/groups/ag-tech/teaching/2012-13_WS/L_19528_Embedded_Internet_and_the_Internet_of_Things/06.pdf?1358508475)
 
+# SRDP vs WAMP
+
+SRDP:
+
+ * runs over UDP
+ * binary, stateless
+ * malloc-less pure C89 implementation 
+
+
 # UDP Multicast
 
 An SRDP adapter needs to communicate with an upstream SRDP host.
