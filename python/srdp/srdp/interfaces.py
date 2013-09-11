@@ -49,6 +49,10 @@ class ISrdpProvider(zope.interface.Interface):
 
 class ISrdpChannel(zope.interface.Interface):
 
+   def __init__(provider):
+      """
+      """
+
    def readRegister(device, register, position = 0, length = 0):
       """
       """

@@ -366,7 +366,7 @@ class SrdpToolProvider(object):
             reg = eds.registersByIndex[k]
             if reg['access'] in ['read', 'readwrite']:
                try:
-                  data = yield self.readRegister(device, reg['index'])
+                  data = yield self.channel.readRegister(device, reg['index'])
                except Exception, e:
                   if reg['optional'] and e.args[0] == SrdpFrameHeader.SRDP_ERR_NO_SUCH_REGISTER:
                      print tabify([k, reg['path'], '- (not implemented)'], LINEFORMAT, self.LINELENGTH)
@@ -379,10 +379,10 @@ class SrdpToolProvider(object):
          print tabify(None, LINEFORMAT, self.LINELENGTH)
          print
 
-      except Exception, e:
-         print
-         print "Error:", e
-         print
+      #except Exception, e:
+      #   print
+      #   print "Error:", e
+      #   print
 
       finally:
          self.channel.close()

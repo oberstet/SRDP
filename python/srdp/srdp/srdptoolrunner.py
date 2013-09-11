@@ -64,7 +64,6 @@ class SrdpToolRunner(object):
       group0 = parser.add_argument_group(title = 'SRDP transport and EDS directories')
       group0.add_argument("-t",
                           "--transport",
-                          required = True,
                           nargs = 2,
                           metavar = ('<transport>', '<transport parameters>'),
                           action = "store",
@@ -182,7 +181,10 @@ class SrdpToolRunner(object):
 
       ## SRDP transport
       ##
-      transport = args.transport[0].strip().lower()
+      if args.transport and len(args.transport) > 0:
+         transport = args.transport[0].strip().lower()
+      else:
+         transport = None
       host = None
       port = None
       baudrate = None
@@ -205,6 +207,8 @@ class SrdpToolRunner(object):
          port = 1910
          if len(s) > 1:
             port = int(s[1])
+      elif transport is None:
+         pass
       else:
          raise Exception("invalid transport %s" % transport)
       
@@ -295,7 +299,7 @@ class SrdpToolRunner(object):
 
          elif config['transport'] == 'udp':
 
-            print "SRDP-over UDP - connecting to %s:%d .." % (config['host'], config['port'])
+            print "SRDP-over-UDP - connecting to %s:%d .." % (config['host'], config['port'])
 
             protocol = SrdpDatagramProtocol(provider = srdptool, addr = (config['host'], config['port']), debug = config['debug'])
             reactor.listenUDP(config['port'], protocol)

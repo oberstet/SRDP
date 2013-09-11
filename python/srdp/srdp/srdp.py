@@ -251,7 +251,7 @@ class SrdpProtocol(object):
       if header.frametype == SrdpFrameHeader.SRDP_FT_REQ:
 
          if header.opcode == SrdpFrameHeader.SRDP_OP_CHANGE:
-            res = self.onRegisterChange(header.device, header.register, header.position, data)
+            res = self._provider.onRegisterChange(header.device, header.register, header.position, data)
 
          elif header.opcode == SrdpFrameHeader.SRDP_OP_READ:
             pass
