@@ -97,16 +97,16 @@ ssize_t transport_write (void* userdata, const uint8_t* data, size_t len) {
 
 // EDS URI for the adapter
 //
-#define ADAPTER_EDS_URI    "http://eds.tavendo.com/adapter/arduino-demoboard"
+#define ADAPTER_EDS_URI    "http://eds.tavendo.com/adapter/adapter"
 
 // Optional adapter information
 //
-#define ADAPTER_HW_VERSION "Arduino Mega 2560"
+#define ADAPTER_HW_VERSION "Example UDP Adapter (C89/Posix)"
 #define ADAPTER_SW_VERSION "V1.0"
 
 // UUID of the adapter
 //
-static const uint8_t ADAPTER_UUID[] = {0xa4, 0x10, 0x4a, 0x89, 0x8d, 0xf1, 0x46, 0xe5, 0xa6, 0x4c, 0x3b, 0xc7, 0x37, 0xdf, 0xd2, 0xf4};
+static const uint8_t ADAPTER_UUID[] = {0xdb, 0x92, 0xde, 0x82, 0x91, 0x7c, 0x45, 0x88, 0xb4, 0x70, 0xaa, 0x00, 0x29, 0x1c, 0x1b, 0xb6};
 
 // Device index of adapter
 //
