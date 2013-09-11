@@ -4,8 +4,11 @@ test_helpers:
 	python srdptool.py --check
 	python srdptool.py --uuid 3
 
-test_list:
+test_udp:
 	python srdptool.py -t udp 192.168.56.102:1910 --list
+	python srdptool.py -t udp 192.168.56.102:1910 --read 1
+
+test_list:
 	python srdptool.py -t serial com12:115200 --list
 
 test_show:

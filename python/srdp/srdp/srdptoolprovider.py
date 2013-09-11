@@ -196,7 +196,7 @@ class SrdpToolProvider(object):
 
 
    @inlineCallbacks
-   def listDevices(self):
+   def listDevices(self, modearg):
       """
       List all devices currently connected to the adapter.
       """
@@ -225,18 +225,17 @@ class SrdpToolProvider(object):
 
          print tabify(None, LINEFORMAT, self.LINELENGTH)
          print
-      #except Exception, e:
-      #   raise e
       finally:
          self.channel.close()
 
 
    @inlineCallbacks
-   def showDevice(self, device):
+   def showDevice(self, modearg):
       """
       Show information for specified device.
       """
       try:
+         device = int(modearg)
          uuid = yield self.getUuid(device)
          edsUri = yield self.getEdsUri(device)
 
@@ -299,10 +298,8 @@ class SrdpToolProvider(object):
 
          print tabify(None, LINEFORMAT, self.LINELENGTH)
          print
-
-      except Exception, e:
-         print "Error:", e
-      self.channel.close()
+      finally:
+         self.channel.close()
 
 
    def writeRegistersAsync(self, device, eds, items):
@@ -326,11 +323,12 @@ class SrdpToolProvider(object):
 
 
    @inlineCallbacks
-   def readDevice(self, device):
+   def readDevice(self, modearg):
       """
       Read all current values from device registers (that allow to "read").
       """
       try:
+         device = int(modearg)
          uuid = yield self.getUuid(device)
          edsUri = yield self.getEdsUri(device)
 
@@ -379,20 +377,16 @@ class SrdpToolProvider(object):
          print tabify(None, LINEFORMAT, self.LINELENGTH)
          print
 
-      #except Exception, e:
-      #   print
-      #   print "Error:", e
-      #   print
-
       finally:
          self.channel.close()
 
 
    @inlineCallbacks
-   def monitorDevice(self, device):
+   def monitorDevice(self, modearg):
       """
       """
       try:
+         device = int(modearg)
          uuid = yield self.getUuid(device)
          edsUri = yield self.getEdsUri(device)
 
@@ -439,37 +433,40 @@ class SrdpToolProvider(object):
          print
          print "Error:", e
          print
-
-      #finally:
-      #   self.channel.close()
+         self.channel.close()
 
 
    def onChannelOpen(self, channel):
-      print 'Serial device connected.'
+      print 'Channel open ..'
       self.channel = channel
 
-      delay = self._config['delay']
-      print "Giving the device %s seconds to get ready .." % delay
+      if self._config['transport'] == 'serial':
+         delay = self._config['delay']
+      else:
+         delay = None
 
       mode = self._config['mode']
       modearg = self._config['modearg']
 
       self.LINELENGTH = self._config['linelength']
 
-      if mode == 'show':
-         reactor.callLater(delay, self.showDevice, device = int(modearg))
-      elif mode == 'read':
-         reactor.callLater(delay, self.readDevice, device = int(modearg))
-      elif mode == 'list':
-         reactor.callLater(delay, self.listDevices)
-      elif mode == 'monitor':
-         reactor.callLater(delay, self.monitorDevice, device = int(modearg))
+      cmdmap = {'show': self.showDevice,
+                'read': self.readDevice,
+                'list': self.listDevices,
+                'monitor': self.monitorDevice}
+
+      if cmdmap.has_key(mode):
+         if delay:
+            print "Giving the device %s seconds to get ready .." % delay
+            reactor.callLater(delay, cmdmap[mode], modearg)
+         else:
+            cmdmap[mode](modearg)
       else:
          raise Exception("mode '%s' not implemented" % mode)
 
 
    def onChannelClose(self, reason):
-      print 'Serial device disconnected.'
+      print 'Channel closed.'
       if self._debug:
          log.msg(reason)
       reactor.stop()
