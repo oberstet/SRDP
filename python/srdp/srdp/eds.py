@@ -93,9 +93,9 @@ class SrdpEds:
       ##
       if reg['type']  == 'char' and reg['count'] in ['uint8', 'uint16']:
          if reg['count'] == 'uint8':
-            return data[1:].decode('utf8')
+            return reg, data[1:].decode('utf8')
          elif reg['count'] == 'uint16':
-            return data[2:].decode('utf8')
+            return reg, data[2:].decode('utf8')
 
       elif type(reg['type']) == list:
          o = {}
@@ -106,19 +106,19 @@ class SrdpEds:
          for i in xrange(len(tval)):
             o[str(reg['type'][i]['field'])] = tval[i]
 
-         return o
+         return reg, o
 
       elif type(reg['count']) == int:
          if reg['count'] == 1:
             fmt = '<' + SrdpEds.SRDP_STYPE_TO_PTYPE[reg['type']]
             tval = struct.unpack(fmt, data)[0]
-            return tval
+            return reg, tval
          else:
             if reg['type'] == 'uint8':
-               return '0x' + binascii.hexlify(data)
+               return reg, '0x' + binascii.hexlify(data)
 
       else:
-         return '?'
+         return reg, '?'
 
 
    def serialize(self, register, value):
@@ -136,9 +136,9 @@ class SrdpEds:
          if type(value) in [str, unicode]:
             s = value.encode('utf8')
             if reg['count'] == 'uint8':
-               return struct.pack('<B', len(s)) + s
+               return reg, struct.pack('<B', len(s)) + s
             elif reg['count'] == 'uint16':
-               return struct.pack('<H', len(s)) + s
+               return reg, struct.pack('<H', len(s)) + s
          else:
             raise Exception("expected str/unicode value")
 
@@ -148,12 +148,12 @@ class SrdpEds:
          for field in reg['type']:
             td += SrdpEds.SRDP_STYPE_TO_PTYPE[field['type']]
             o.append(value[field['field']])
-         return struct.pack(td, *o)
+         return reg, struct.pack(td, *o)
 
       elif type(reg['count']) == int:
          if reg['count'] == 1:
             fmt = '<' + SrdpEds.SRDP_STYPE_TO_PTYPE[reg['type']]
-            return struct.pack(fmt, value)
+            return reg, struct.pack(fmt, value)
 
       raise Exception("serialize type not implemted")
 

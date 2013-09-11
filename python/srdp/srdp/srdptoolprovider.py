@@ -305,8 +305,7 @@ class SrdpToolProvider(object):
    def writeRegistersAsync(self, device, eds, items):
       dl = []
       for reg, value in items:
-         register = eds.getRegister(reg)
-         data = eds.serialize(reg, value)
+         register, data = eds.serialize(reg, value)
          self.channel.writeRegister(device, register['index'], data)
          dl.append(self.channel.writeRegister(device, register['index'], data))
       return DeferredList(dl)
@@ -315,8 +314,7 @@ class SrdpToolProvider(object):
    #@inlineCallbacks
    def writeRegisters(self, device, eds, items):
       for reg, value in items:
-         register = eds.getRegister(reg)
-         data = eds.serialize(reg, value)
+         register, data = eds.serialize(reg, value)
          #res = yield self.writeRegister(device, register['index'], data)
          self.channel.writeRegister(device, register['index'], data)
          #print "*", res
@@ -371,7 +369,7 @@ class SrdpToolProvider(object):
                   else:
                      print tabify([k, reg['path'], 'Error: %s.' % e.args[1]], LINEFORMAT, self.LINELENGTH)
                else:
-                  val = eds.unserialize(k, data)
+                  _, val = eds.unserialize(k, data)
                   print tabify([k, reg['path'], val], LINEFORMAT, self.LINELENGTH)
 
          print tabify(None, LINEFORMAT, self.LINELENGTH)
@@ -420,8 +418,7 @@ class SrdpToolProvider(object):
             self.LINES += 1
             if (self.LINES % 40) == 0:
                _printHeader()
-            reg = eds.getRegister(register)
-            val = eds.unserialize(register, data)
+            reg, val = eds.unserialize(register, data)
             print tabify([reg['index'], reg['path'], val], LINEFORMAT, self.LINELENGTH)
 
          self.onRegisterChange = _onRegisterChange
