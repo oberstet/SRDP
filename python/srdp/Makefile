@@ -1,4 +1,4 @@
-all: clean build upload
+all: clean build
 
 install:
 	python setup.py install

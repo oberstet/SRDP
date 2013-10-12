@@ -12,3 +12,4 @@ eggs
 *.a
 *.o
 udp_adapter
+*..sublime-workspace
