@@ -283,3 +283,11 @@ And here is how you can write to the `/light` register and set a LED color value
 	HEX     : bc135d3ee4f84230b6fbee78bb1fc62b
 	C/C++   : {0xbc, 0x13, 0x5d, 0x3e, 0xe4, 0xf8, 0x42, 0x30, 0xb6, 0xfb, 0xee, 0x78, 0xbb, 0x1f, 0xc6, 0x2b}
 
+
+# Builtin EDS Database
+
+## Open Energy Monitor
+
+ * http://openenergymonitor.org/emon/node/58
+ * https://github.com/openenergymonitor/EmonLib/blob/master/examples/voltage_and_current/voltage_and_current.ino
+ * https://github.com/openenergymonitor/EmonLib/blob/master/EmonLib.cpp

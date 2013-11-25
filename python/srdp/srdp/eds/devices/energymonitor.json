@@ -9,12 +9,12 @@
 
       {
          "index": 1024,
-         "path": "/vcalib",
+         "path": "/vcalibration",
          "optional": false,
          "access": "readwrite",
          "type": "float",
          "count": 1,
-         "desc": "Voltage calibration in UNIT?."
+         "desc": "Configuration register setting voltage calibration in UNIT?."
       },
 
       {
@@ -24,31 +24,41 @@
          "access": "readwrite",
          "type": "float",
          "count": 1,
-         "desc": "Voltage phase shift UNIT?."
+         "desc": "Configuration register setting voltage phase shift UNIT?."
       },
 
       {
          "index": 1025,
-         "path": "/icalib",
+         "path": "/icalibration",
          "optional": false,
          "access": "readwrite",
          "type": "float",
          "count": 1,
-         "desc": "Current calibration in UNIT?."
+         "desc": "Configuration register setting current calibration in UNIT?."
       },
 
       {
          "index": 1026,
-         "path": "/urate",
+         "path": "/measurementcrossings",
          "optional": false,
          "access": "readwrite",
-         "type": "float",
+         "type": "uint16",
          "count": 1,
-         "desc": "Setting a non-zero value T will generate register change events every T seconds for the sensor registers (regardless if those values have actually changed or not). Default is 0."
+         "desc": "Configuration register setting number of half wavelengths (crossings) per measurement."
       },
 
       {
          "index": 1027,
+         "path": "/measurementtimeout",
+         "optional": false,
+         "access": "readwrite",
+         "type": "uint32",
+         "count": 1,
+         "desc": "Configuration register setting timeout of single measurement in ms."
+      },
+
+      {
+         "index": 1028,
          "path": "/realpower",
          "optional": false,
          "access": "read",
@@ -58,7 +68,7 @@
       },
 
       {
-         "index": 1028,
+         "index": 1029,
          "path": "/apparentpower",
          "optional": false,
          "access": "read",
@@ -68,7 +78,7 @@
       },
 
       {
-         "index": 1029,
+         "index": 1030,
          "path": "/powerfactor",
          "optional": false,
          "access": "read",
@@ -78,7 +88,7 @@
       },
 
       {
-         "index": 1030,
+         "index": 1031,
          "path": "/vrms",
          "optional": false,
          "access": "read",
@@ -88,7 +98,7 @@
       },
 
       {
-         "index": 1031,
+         "index": 1032,
          "path": "/irms",
          "optional": false,
          "access": "read",
