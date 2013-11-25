@@ -28,7 +28,7 @@
       },
 
       {
-         "index": 1025,
+         "index": 1026,
          "path": "/icalibration",
          "optional": false,
          "access": "readwrite",
@@ -38,17 +38,17 @@
       },
 
       {
-         "index": 1026,
+         "index": 1027,
          "path": "/measurementcrossings",
          "optional": false,
          "access": "readwrite",
          "type": "uint16",
          "count": 1,
-         "desc": "Configuration register setting number of half wavelengths (crossings) per measurement."
+         "desc": "Configuration register setting number of half-wavelengths (crossings) processed per measurement."
       },
 
       {
-         "index": 1027,
+         "index": 1028,
          "path": "/measurementtimeout",
          "optional": false,
          "access": "readwrite",
@@ -58,7 +58,7 @@
       },
 
       {
-         "index": 1028,
+         "index": 1029,
          "path": "/realpower",
          "optional": false,
          "access": "read",
@@ -68,7 +68,7 @@
       },
 
       {
-         "index": 1029,
+         "index": 1030,
          "path": "/apparentpower",
          "optional": false,
          "access": "read",
@@ -78,7 +78,7 @@
       },
 
       {
-         "index": 1030,
+         "index": 1031,
          "path": "/powerfactor",
          "optional": false,
          "access": "read",
@@ -88,7 +88,7 @@
       },
 
       {
-         "index": 1031,
+         "index": 1032,
          "path": "/vrms",
          "optional": false,
          "access": "read",
@@ -98,7 +98,7 @@
       },
 
       {
-         "index": 1032,
+         "index": 1033,
          "path": "/irms",
          "optional": false,
          "access": "read",
