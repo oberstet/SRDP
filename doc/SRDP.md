@@ -47,7 +47,8 @@ SRDP:
 
  * runs over UDP
  * binary, stateless
- * malloc-less pure C89 implementation 
+ * malloc-less pure C89 implementation
+ * runs in 1kB RAM
 
 
 # UDP Multicast
