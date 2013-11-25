@@ -1,0 +1,100 @@
+{
+   "uri": "http://eds.tavendo.com/device/openenergymonitor",
+
+   "desc": "'Open Energy Monitor' is smart sensor for monitoring electrical energy consumption as described on openenergymonitor.org.",
+
+   "registers": [
+
+      "http://eds.tavendo.com/device/device",
+
+      {
+         "index": 1024,
+         "path": "/vcalib",
+         "optional": false,
+         "access": "readwrite",
+         "type": "float",
+         "count": 1,
+         "desc": "Voltage calibration in UNIT?."
+      },
+
+      {
+         "index": 1025,
+         "path": "/vphaseshift",
+         "optional": false,
+         "access": "readwrite",
+         "type": "float",
+         "count": 1,
+         "desc": "Voltage phase shift UNIT?."
+      },
+
+      {
+         "index": 1025,
+         "path": "/icalib",
+         "optional": false,
+         "access": "readwrite",
+         "type": "float",
+         "count": 1,
+         "desc": "Current calibration in UNIT?."
+      },
+
+      {
+         "index": 1026,
+         "path": "/urate",
+         "optional": false,
+         "access": "readwrite",
+         "type": "float",
+         "count": 1,
+         "desc": "Setting a non-zero value T will generate register change events every T seconds for the sensor registers (regardless if those values have actually changed or not). Default is 0."
+      },
+
+      {
+         "index": 1027,
+         "path": "/realpower",
+         "optional": false,
+         "access": "read",
+         "type": "float",
+         "count": 1,
+         "desc": "Sensor register containing last measurement of real electrical power in UNIT?."
+      },
+
+      {
+         "index": 1028,
+         "path": "/apparentpower",
+         "optional": false,
+         "access": "read",
+         "type": "float",
+         "count": 1,
+         "desc": "Sensor register containing last measurement of apparent electrical power in UNIT?."
+      },
+
+      {
+         "index": 1029,
+         "path": "/powerfactor",
+         "optional": false,
+         "access": "read",
+         "type": "float",
+         "count": 1,
+         "desc": "Sensor register containing last measurement of power factor in UNIT?."
+      },
+
+      {
+         "index": 1030,
+         "path": "/vrms",
+         "optional": false,
+         "access": "read",
+         "type": "float",
+         "count": 1,
+         "desc": "Sensor register containing last measurement of Vrms in UNIT?."
+      },
+
+      {
+         "index": 1031,
+         "path": "/irms",
+         "optional": false,
+         "access": "read",
+         "type": "float",
+         "count": 1,
+         "desc": "Sensor register containing last measurement of Irms in UNIT?."
+      }
+   ]
+}
